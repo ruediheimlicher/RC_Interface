@@ -446,11 +446,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       if (pot0L)
       {
          //NSLog(@"pot0L: %d pot0H: %d\n",pot0L,pot0H);
-         //fprintf(stderr,"\t%d\t%d\t%d",pot0L,pot0H,pot0);
+         //fprintf(stderr,"\t%d\t%d\t%d\n",pot0L,pot0H,pot0);
          [Pot0_Level setIntValue:pot0];
          [Pot0_Slider setIntValue:pot0];
 
          [Pot0_DataFeld setIntValue:pot0];
+         [Vertikalbalken setLevel:pot0/4096.0*255];
+
       }
 
       int pot1L = (UInt8)buffer[10];
@@ -468,8 +470,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
       }
       
-      
-      
+            
       //      NSMutableDictionary* NotificationDic=[[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
       
       //NSLog(@"**");
@@ -504,7 +505,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 /*******************************************************************/
 - (void)USB_ReadAktion:(NSNotification*)note
 {
-   NSLog(@"USB_ReadAktion usbstatus: %d usb_present: %d",usbstatus,usb_present());
+   //NSLog(@"USB_ReadAktion usbstatus: %d usb_present: %d",usbstatus,usb_present());
    int antwort=0;
    int delayok=0;
    
@@ -565,7 +566,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    if ([[note userInfo]objectForKey:@"pwm"])
    {
       pwm = [[[note userInfo]objectForKey:@"pwm"]intValue];
-      NSLog(@"USB_ReadAktion pwm: %d",pwm);
+      //NSLog(@"USB_ReadAktion pwm: %d",pwm);
    }
    
    
@@ -619,7 +620,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [self write_Abschnitt];
       } // if count
       
-      NSLog(@"USB_ReadAktion Start Timer");
+      //NSLog(@"USB_ReadAktion Start Timer");
       
       // home ist 1 wenn homebutton gedrückt ist
       NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:0],@"home", nil];
@@ -658,7 +659,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    first=NULL;
    
  // 
-	
+
 	
 	uint8_t zahl=244;
 	char string[3];
@@ -728,6 +729,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
               name:NSWindowWillCloseNotification
             object:nil];
 
+   [Vertikalbalken setLevel:144];
+   [Vertikalbalken setNeedsDisplay:YES];
 
 	lastDataRead=[[NSData alloc]init];
 	
@@ -740,6 +743,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
    
    // End Einfuegen
+   
    
    [self showWindow:NULL];
    
@@ -889,8 +893,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    while (IOIteratorNext(portIterator)) {}; // Run out the iterator or notifications won't start (you can also use it to iterate the available devices).
    
    //
-
-
+   NSRect Balkenrect = [Vertikalbalken frame];
+   //[Vertikalbalken initWithFrame:Balkenrect];
+   //[Vertikalbalken setLevel:177];
+   [Vertikalbalken setNeedsDisplay:YES];
 }
 
 - (void) windowClosing:(NSNotification*)note

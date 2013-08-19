@@ -11,6 +11,8 @@
 //#import "rDump_DS.h"
 //#import "rUtils.h"
 
+#import "rVertikalanzeige.h"
+
 #import "hid.h"
 
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
@@ -113,6 +115,9 @@
    int               halt;
    NSMutableIndexSet* HomeAnschlagSet;
    char*             newsendbuffer;
+   
+   
+   IBOutlet rVertikalanzeige* Vertikalbalken;
   
 }
 
@@ -150,5 +155,5 @@
 - (void)StartTWI;
 - (void)initList;
 - (void)StepperstromEinschalten:(int)ein;
-- (IBAction)print:(id)sender;
+//- (IBAction)print:(id)sender;
 @end
