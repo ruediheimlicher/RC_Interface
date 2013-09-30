@@ -1,10 +1,11 @@
 #import "USBWindowController.h"
 
+//#import "rMath.m"
 
 extern int usbstatus;
 
 									 
-									 
+
 									 
 									 
 static NSString *SystemVersion ()
@@ -134,9 +135,33 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                                    [NSString stringWithFormat:@"%d",i+9],nil];
       [USB_DatenArray addObject:tempArray];
    }
-   //NSLog(@"readUSBUSB_DatenArray: %@",[USB_DatenArray description]);
+   //NSLog(@"reportWriteUSB_DatenArray: %@",[USB_DatenArray description]);
    [self write_Abschnitt];
 }
+
+- (IBAction)reportWriteEEPROM:(id)sender;
+{
+   NSLog(@"reportWriteEEPROM");
+   Stepperposition = 0;
+   
+   for (int i=0;i<8;i++)
+   {
+      NSMutableArray* tempArray = [[NSMutableArray alloc]initWithCapacity:0];
+      
+      for (int k=0;k<PAGESIZE-1;k++)
+      {
+         [tempArray addObject:[NSString stringWithFormat:@"%d",k+i]];
+      }
+      
+      
+      [tempArray addObject:[NSString stringWithFormat:@"%d",0xA0]]; // code
+      
+      [USB_DatenArray addObject:tempArray];
+   }
+   //NSLog(@"reportWriteEEPROM: %@",[USB_DatenArray description]);
+   [self write_EEPROM];
+}
+
 
 
 - (NSDictionary*)datendic
@@ -224,7 +249,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
     )
 
     */
-   NSMutableArray* USB_DatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   //NSMutableArray* USB_DatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    for (int i=0;i<8;i++)
    {
       NSArray* temparray = [NSArray arrayWithObjects:[NSNumber numberWithInt:i],
@@ -255,6 +280,139 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    return (NSDictionary*)SchnittdatenDic;
 }
 
+- (void)send_EEPROMpage:(int)EEPROMpage
+{
+   
+   //EEPROMposition++;
+   char*      sendbufferLO = malloc(PAGESIZE);
+   char*      sendbufferHI = malloc(PAGESIZE);
+   
+   int stufe = 0;
+   if (EEPROMpage < VEKTORSIZE / PAGESIZE)
+   {
+      int startposition = EEPROMpage * PAGESIZE;
+      for (int pos = 0;pos < PAGESIZE;pos++)
+      {
+         
+         //Wert an Stelle (pos + startposition) in ExpoDatenArray
+         int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:(pos + startposition)]intValue];
+         sendbufferLO[pos] = lo;
+         
+         int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:(pos + startposition)]intValue];
+         sendbufferHI[pos] = hi;
+      }
+      
+      fprintf(stderr,"send_EEPROMpage %d\t%d\t",EEPROMpage, startposition);
+      for (int pos = 0;pos < PAGESIZE;pos++)
+      {
+         int wert = sendbufferHI[pos];
+         wert <<= 8;
+         wert += sendbufferLO[pos];
+         //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+         fprintf(stderr,"\t%d",wert);
+         
+      }
+      fprintf(stderr,"\n");
+      
+   }
+   
+   
+   
+   
+   free (sendbufferLO);
+   free (sendbufferHI);
+   
+}
+
+
+- (void)write_EEPROM
+{
+	//NSLog(@"write_EEPROM USB_DatenArray anz: %d\n USB_DatenArray: %@",[USB_DatenArray count],[USB_DatenArray description]);
+   
+   if (Stepperposition < [USB_DatenArray count])
+	{
+      
+ 		
+      char*      sendbuffer;
+      sendbuffer=malloc(EE_PAGESIZE);
+      //
+      int i;
+      
+      NSMutableArray* tempUSB_DatenArray=(NSMutableArray*)[USB_DatenArray objectAtIndex:Stepperposition];
+      
+      NSScanner *theScanner;
+      unsigned	  value;
+      NSLog(@"write_EEPROM tempUSB_DatenArray count: %d",[tempUSB_DatenArray count]);
+      //NSLog(@"loop start");
+      //NSDate *anfang = [NSDate date];
+      for (i=0;i<[tempUSB_DatenArray count];i++)
+      {
+         
+         int tempWert=[[tempUSB_DatenArray objectAtIndex:i]intValue];
+         //           fprintf(stderr,"%d\t",tempWert);
+         NSString*  tempHexString=[NSString stringWithFormat:@"%x",tempWert];
+         theScanner = [NSScanner scannerWithString:tempHexString];
+         if ([theScanner scanHexInt:&value])
+         {
+            sendbuffer[i] = (char)value;
+         }
+         else
+         {
+            NSRunAlertPanel (@"Invalid data format", @"Please only use hex values between 00 and FF.", @"OK", nil, nil);
+            //free (sendbuffer);
+            return;
+         }
+         
+         //sendbuffer[i]=(char)[[tempUSB_DatenArray objectAtIndex:i]UTF8String];
+      }
+      
+      //sendbuffer[20] = 33;
+      sendbuffer[31] = 0xA0;
+      //NSLog(@"code: %d",sendbuffer[16]);
+      
+      
+      fprintf(stderr,"write_EEPROM sendbuffer\n");
+      for (i=0;i<PAGESIZE;i++ )
+      {
+         fprintf(stderr,"%X\t",sendbuffer[i] & 0xFF);
+         
+      }
+      fprintf(stderr,"\n");
+      
+      int senderfolg= rawhid_send(0, sendbuffer, EE_PAGESIZE, 50);
+      
+      NSLog(@"write_EEPROM erfolg: %d Stepperposition: %d",senderfolg,Stepperposition);
+      
+      //dauer4 = [dateA timeIntervalSinceNow]*1000;
+      //         int senderfolg= rawhid_send(0, newsendbuffer, 32, 50);
+      
+      //NSLog(@"write_EEPROM senderfolg: %X",senderfolg);
+      //NSLog(@"write_EEPROM  Stepperposition: %d ",Stepperposition);
+      
+      Stepperposition++;
+      free (sendbuffer);
+      
+	}
+   else
+   {
+      NSLog(@"write_Abschnitt >count\n*\n\n");
+      //NSLog(@"writeCNCAbschnitt timer inval");
+      
+      if (readTimer)
+      {
+         if ([readTimer isValid])
+         {
+            NSLog(@"write_Abschnitt timer inval");
+            [readTimer invalidate];
+         }
+         [readTimer release];
+         readTimer = NULL;
+         
+      }
+      
+      
+   }
+}
 
 - (void)write_Abschnitt
 {
@@ -391,11 +549,38 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       int home=0;
       
       
-      
-      
       int i=0;
       //NSLog(@"read_USB AbschnittFertig buffer:");
-      //fprintf(stderr,"i:\tchar:\tdata:\t\n");
+      //fprintf(stderr,"data:\t");
+      if (!(buffer[3] == lastdata0))
+      {
+         if (buffer[3])
+         {
+         lastdata0 = buffer[3];
+         fprintf(stderr,"%d\t%d\n",(buffer[3]& 0xFF),(buffer[4]& 0xFF));
+         }
+      }
+      
+      
+      for (i=0;i<16;i++)
+      {
+         //fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
+      }
+      
+      if (buffer[8])
+      {
+         
+         int kan0 = (UInt8)buffer[8] | ((UInt8)buffer[9]<<8);
+         //int adc0H = (UInt8)buffer[6];
+         //int adc0 = adc0L | (adc0H<<8);
+
+         //fprintf(stderr,"%d\t%d\t%d\t",(buffer[9]& 0xFF),(buffer[8]& 0xFF),kan0);
+         //fprintf(stderr,"%d\t",kan0);
+         
+      }
+      
+      //fprintf(stderr,"\n");
+
       
       if ((UInt8)buffer[0]>0)
       {
@@ -651,6 +836,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 /*" Invoked when the nib file including the window has been loaded. "*/
 - (void) awakeFromNib
 {
+   
+   uint8_t a=0;
    mausistdown=0;
    anzrepeat=0;
    int listcount=0;
@@ -687,8 +874,47 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		h%=10;
 		string[0]=h + 'A'; 
 	}
+   
+   EEPROMposition = 0;
+   
+   //int aa=(15625& 0x00FF)>>8;
+   //int bb = 15625& 0x00FF;
+   //NSLog(@"aa: %d bb: %d",aa,bb);
 	
-	
+   Math = [[rMath alloc]init];
+   
+   ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   float delta = 0;
+   for (int k=0;k<4;k++)
+   {
+      
+      NSArray* dataArray = [Math expoArrayMitStufe:k];
+      [ExpoDatenArray addObject:dataArray];
+      
+      
+	}
+   
+    for (int stufe=0;stufe<4;stufe++)
+    {
+       fprintf(stderr,"%d\t",stufe);
+       for (int pos=0;pos<VEKTORSIZE;pos++)
+       {
+         int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
+         int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
+          int wert = hi;
+          wert <<= 8;
+          wert += lo;
+          //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+          fprintf(stderr,"\t%d",wert);
+       }
+       fprintf(stderr,"\n");
+
+    }
+   
+   [self send_EEPROMpage:0];
+   
+   
+   
 	NSImage* myImage = [NSImage imageNamed: @"USB"];
 	[NSApp setApplicationIconImage: myImage];
 	

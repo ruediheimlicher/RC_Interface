@@ -13,6 +13,8 @@
 
 #import "rVertikalanzeige.h"
 
+#import "rMath.h"
+
 #import "hid.h"
 
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
@@ -22,6 +24,10 @@
 #define USBATTACHED           5
 #define USBREMOVED            6
 
+
+#define PAGESIZE              32
+
+#define EE_PAGESIZE           32
 
  struct Abschnitt
  {
@@ -82,7 +88,7 @@
     NSData*								lastValueRead; /*" The last value read"*/
     NSData*								lastDataRead; /*" The last value read"*/
 	 
-	
+	rMath*                           Math;
     	
 
 //	rADWandler*			ADWandler;
@@ -115,7 +121,15 @@
    int               halt;
    NSMutableIndexSet* HomeAnschlagSet;
    char*             newsendbuffer;
+  
+   // RC
+   NSMutableArray*   ExpoDatenArray;     // Daten fuer EEPROM mit exponentialkurven
+	NSMutableArray*	USB_EEPROMArray;
+	int					EEPROMposition;
    
+   int lastdata0;
+   int lastdata1;
+
    
    IBOutlet rVertikalanzeige* Vertikalbalken;
   
@@ -133,6 +147,9 @@
 
 - (IBAction)reportReadUSB:(id)sender;
 - (IBAction)reportWriteUSB:(id)sender;
+
+- (IBAction)reportWriteEEPROM:(id)sender;
+
 - (void)USB_ReadAktion:(NSNotification*)note;
 @end
 
