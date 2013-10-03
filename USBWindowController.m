@@ -546,8 +546,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          //   return;
       }
       //NSDate* dateA=[NSDate date];
-      int home=0;
-      
+           
       
       int i=0;
       //NSLog(@"read_USB AbschnittFertig buffer:");
@@ -557,20 +556,29 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          if (buffer[3])
          {
          lastdata0 = buffer[3];
-         fprintf(stderr,"%d\t%d\n",(buffer[3]& 0xFF),(buffer[4]& 0xFF));
+         //fprintf(stderr,"%d\t%d\n",(buffer[3]& 0xFF),(buffer[4]& 0xFF));
          }
       }
       
-      
-      for (i=0;i<16;i++)
+      if (buffer[0])
       {
+      for (i=0;i<2;i++)
+      {
+         UInt8 wertL = (UInt8)buffer[2*i];
+         UInt8 wertH = ((UInt8)buffer[2*i+1]);
+         int wert = wertL | (wertH<<8);
+          //int wert = wertL + (wertH );
+       //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
          //fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
+        // fprintf(stderr," | ");
+      }
+      //fprintf(stderr,"\n");
       }
       
       if (buffer[8])
       {
          
-         int kan0 = (UInt8)buffer[8] | ((UInt8)buffer[9]<<8);
+         //int kan0 = (UInt8)buffer[8] | ((UInt8)buffer[9]<<8);
          //int adc0H = (UInt8)buffer[6];
          //int adc0 = adc0L | (adc0H<<8);
 
@@ -624,8 +632,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
       
       
-      int pot0L = (UInt8)buffer[8];
-      int pot0H = (UInt8)buffer[9];
+      int pot0L = (UInt8)buffer[0];
+      int pot0H = (UInt8)buffer[1];
       
       int pot0 = pot0L | (pot0H<<8);
       if (pot0L)
@@ -636,12 +644,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          [Pot0_Slider setIntValue:pot0];
 
          [Pot0_DataFeld setIntValue:pot0];
-         [Vertikalbalken setLevel:pot0/4096.0*255];
+         //[Vertikalbalken setLevel:pot0/4096.0*255];
+         [Vertikalbalken setLevel:(pot0-1000)/1000.0*255];
 
       }
 
-      int pot1L = (UInt8)buffer[10];
-      int pot1H = (UInt8)buffer[11];
+      int pot1L = (UInt8)buffer[2];
+      int pot1H = (UInt8)buffer[3];
       int pot1 = pot1L | (pot1H<<8);
       if (pot1L)
       {
