@@ -28,7 +28,7 @@
    {
       if (stufe)
       {
-         float delta = stufe *1.0;
+         float delta = stufe *1.0/4;
       float position = STARTWERT + i*SCHRITTWEITE;
       float exponent = delta*position/1000;
       float wert = exp(exponent);

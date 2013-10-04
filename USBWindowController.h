@@ -25,9 +25,15 @@
 #define USBREMOVED            6
 
 
-#define PAGESIZE              32
+#define PAGESIZE              64
 
-#define EE_PAGESIZE           32
+#define EE_PAGESIZE           64
+
+
+#define EEPROM_WRITE_TASK     1
+
+
+
 
  struct Abschnitt
  {
@@ -85,6 +91,8 @@
    IBOutlet    NSSlider*            Pot1_Slider;
    IBOutlet    NSTextField*			Pot1_DataFeld;
 
+   
+   
     NSData*								lastValueRead; /*" The last value read"*/
     NSData*								lastDataRead; /*" The last value read"*/
 	 
@@ -108,7 +116,7 @@
 	
 	// CNC
 	NSMutableArray*	USB_DatenArray;
-	int					Stepperposition;
+	int					Dataposition;
 	
 	int					schliessencounter;
 	int					haltFlag;
@@ -122,7 +130,11 @@
    NSMutableIndexSet* HomeAnschlagSet;
    char*             newsendbuffer;
   
+   int               usbstatus; // was tun
+   int               usbtask; // welche Task ist aktuell
+   
    // RC
+   
    NSMutableArray*   ExpoDatenArray;     // Daten fuer EEPROM mit exponentialkurven
 	NSMutableArray*	USB_EEPROMArray;
 	int					EEPROMposition;
@@ -132,6 +144,8 @@
 
    
    IBOutlet rVertikalanzeige* Vertikalbalken;
+   
+   IBOutlet id       Taskwahl;
   
 }
 
@@ -150,7 +164,9 @@
 
 - (IBAction)reportWriteEEPROM:(id)sender;
 
-- (void)USB_ReadAktion:(NSNotification*)note;
+- (void)sendTask:(int)status;
+
+- (void)USB_Aktion:(NSNotification*)note;
 @end
 
 
