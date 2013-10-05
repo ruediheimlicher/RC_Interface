@@ -163,6 +163,7 @@
 - (IBAction)reportWriteUSB:(id)sender;
 
 - (IBAction)reportWriteEEPROM:(id)sender;
+- (IBAction)reportHalt:(id)sender;
 
 - (void)sendTask:(int)status;
 

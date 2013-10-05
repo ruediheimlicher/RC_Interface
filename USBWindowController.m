@@ -138,7 +138,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                                                userInfo:timerDic repeats:YES]retain];
    
 
-   //[self USB_Aktion:NULL];
+   
    
  }
 
@@ -187,7 +187,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    for (int i=0;i<8;i++)
    {
-      NSMutableArray* tempArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%d",i+1],   [NSString stringWithFormat:@"%d",i+3],
+      NSMutableArray* tempArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%d",0xA2],   [NSString stringWithFormat:@"%d",i+3],
                                    [NSString stringWithFormat:@"%d",i+4],
                                    [NSString stringWithFormat:@"%d",i+5],
                                    [NSString stringWithFormat:@"%d",i+6],
@@ -200,7 +200,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [self write_Abschnitt];
 }
 
-- (IBAction)reportWriteEEPROM:(id)sender;
+- (IBAction)reportWrite_1_EEPROM:(id)sender
+{
+   
+}
+
+- (IBAction)reportWriteEEPROM:(id)sender
 {
    NSLog(@"\n***");
    NSLog(@"reportWriteEEPROM");
@@ -312,6 +317,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [self USB_Aktion:NULL];
 }
 
+- (IBAction)reportHalt:(id)sender
+{
+   //NSLog(@"reportHalt state: %d",[sender state]);
+
+   int code = ![sender state];
+   [self sendTask:0xF0+code];
+}
 
 
 - (NSDictionary*)datendic
@@ -432,7 +444,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)sendTask:(int)task
 {
-   NSLog(@"sendTask: task: %d",task);
+   NSLog(@"sendTask: task: %X",task);
    NSScanner *theScanner;
    unsigned	  value;
 
@@ -648,23 +660,25 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       {
          fprintf(stderr,"write_Abschnitt sendbuffer position 0\n");
          for (int i=0;i<8;i++)
-         fprintf(stderr,"%d\t",(uint8)sendbuffer[i]);
+         {
+            fprintf(stderr,"%d\t",(uint8)sendbuffer[i]);
+         }
          fprintf(stderr,"\n");
       }
-      /*
+      
       else
       {
-       fprintf(stderr,"write_Abschnitt sendbuffer\n");
-         for (int i=0;i<PAGESIZE;i+=2) // 32 16Bit-Werte
+       //fprintf(stderr,"write_Abschnitt sendbuffer\n");
+       //  for (int i=0;i<PAGESIZE;i+=2) // 32 16Bit-Werte
          {
             //fprintf(stderr,"%d\t",(uint8)sendbuffer[i]);
-            int wert = (uint8)sendbuffer[i] | ((uint8)sendbuffer[i+1]<<8);
-            fprintf(stderr,"%d\t",wert);
+       //     int wert = (uint8)sendbuffer[i] | ((uint8)sendbuffer[i+1]<<8);
+       //     fprintf(stderr,"%d\t",wert);
          }
       }
       
-      fprintf(stderr,"\n");
-       */
+      //fprintf(stderr,"\n");
+       
       
       int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
       
@@ -764,6 +778,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   
                   
                   //NSLog(@"********  B1 result: %d dataRead: %X testadress: %X testdata: %X indata: %X Dataposition: %d",result,code,(UInt8)buffer[2],(UInt8)buffer[3],(UInt8)buffer[4] ,Dataposition);
+                  
                   if (Dataposition < [USB_DatenArray count])
                   {
                      fprintf(stderr,"*");
@@ -794,14 +809,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             int i=0;
             if (buffer[0])
             {
-               for (i=0;i<4;i++)
+               for (i=0;i<16;i++)
                {
-                  UInt8 wertL = (UInt8)buffer[2*i];
-                  UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                  int wert = wertL | (wertH<<8);
+                  //UInt8 wertL = (UInt8)buffer[2*i];
+                 // UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                  //int wert = wertL | (wertH<<8);
                   //int wert = wertL + (wertH );
                   //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                 // fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
+                  //fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
                   //fprintf(stderr," | ");
                }
                //fprintf(stderr,"\n");
