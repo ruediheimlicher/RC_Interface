@@ -153,6 +153,9 @@
    IBOutlet id       EE_DataFeld;
    IBOutlet id       EE_datalo;
    IBOutlet id       EE_datahi;
+   IBOutlet id       EE_datalohex;
+   IBOutlet id       EE_datahihex;
+
 }
 
 
