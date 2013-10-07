@@ -123,7 +123,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    {
       if ([readTimer isValid])
       {
-         NSLog(@"USB_Aktion laufender timer inval");
+         //NSLog(@"USB_Aktion laufender timer inval");
          [readTimer invalidate];
          
       }
@@ -131,7 +131,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       readTimer = NULL;
       
    }
-   
+   NSLog(@"start Timer");
    readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.1
                                                  target:self
                                                selector:@selector(read_USB:)
@@ -220,6 +220,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+ 
    
    fprintf(stderr,"Adresse: \t%d\t%d \thex \t%2X\t%2X\n",lo,hi, lo, hi);
    [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
@@ -440,125 +442,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    //NSLog(@"reportHalt state: %d",[sender state]);
 
    int code = ![sender state];
-   [self sendTask:0xF0+code];
+   [self sendTask:0xF6+code];
+   
 }
 
 
-- (NSDictionary*)datendic
-{
-      // Array an USB schicken
-      NSNotificationCenter* nc=[NSNotificationCenter defaultCenter];
-      NSMutableDictionary* SchnittdatenDic=[[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
-   
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"pwm"];
-   
-   /*
-    2013-08-02 09:14:29.023 USB_Stepper[1560:303] USB_DatenArray 0: (
-    (
-    39,
-    1,
-    8,
-    1,
-    34,
-    0,
-    39,
-    0,
-    39,
-    1,
-    8,
-    1,
-    34,
-    0,
-    39,
-    0,
-    0,
-    1,
-    0,
-    0,
-    76,
-    1
-    ),
-    (
-    217,
-    0,
-    75,
-    0,
-    27,
-    0,
-    79,
-    0,
-    217,
-    0,
-    75,
-    0,
-    27,
-    0,
-    79,
-    0,
-    0,
-    0,
-    0,
-    1,
-    76,
-    1
-    ),
-    (
-    238,
-    0,
-    37,
-    0,
-    26,
-    0,
-    170,
-    0,
-    238,
-    0,
-    37,
-    0,
-    26,
-    0,
-    170,
-    0,
-    0,
-    2,
-    0,
-    2,
-    76,
-    1
-    )
-    )
-
-    */
-   //NSMutableArray* USB_DatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-   for (int i=0;i<8;i++)
-   {
-      NSArray* temparray = [NSArray arrayWithObjects:[NSNumber numberWithInt:i],
-                            [NSNumber numberWithInt:2*i],
-                            [NSNumber numberWithInt:3*i],
-                            [NSNumber numberWithInt:4*i],
-                            [NSNumber numberWithInt:5*i],
-                            [NSNumber numberWithInt:6*i],
-                            [NSNumber numberWithInt:7*i],
-                            [NSNumber numberWithInt:8*i],
-                            [NSNumber numberWithInt:i],nil];
-      [USB_DatenArray addObject:temparray];
-   }
-   
-      [SchnittdatenDic setObject:USB_DatenArray forKey:@"USB_DatenArray"];
-      [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"cncposition"];
-      [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"home"]; //
-   
-
-   
-      [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"art"]; //
-      NSLog(@"reportUSB_SendArray SchnittdatenDic: %@",[SchnittdatenDic description]);
-      
-      //   [nc postNotificationName:@"usbschnittdaten" object:self userInfo:SchnittdatenDic];
-      //NSLog(@"reportUSB_SendArray delayok: %d",delayok);
-      [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"delayok"];
-      
-   return (NSDictionary*)SchnittdatenDic;
-}
 
 - (void)sendTask:(int)task
 {
@@ -966,7 +854,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                case 0xD5:
                {
                   fprintf(stderr,"echo read EEPROM Byte ");
-                  
+                  // buffer1 ist data
                   for (int i=0;i<8;i++)
                   {
                      UInt8 wertL = (UInt8)buffer[2*i];
@@ -981,11 +869,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   fprintf(stderr,"\n");
                   
                   
-                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%02X\t|\t%d",(UInt8)buffer[1]& 0xFF,(UInt8)buffer[1]& 0xFF]];
+                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[1]& 0xFF]];
                   [EE_datalo setIntValue:(UInt8)buffer[1]& 0x00FF];
-                  [EE_datahi setIntValue:(((UInt8)buffer[1]& 0xFF00)>>8)];
                   
+                  [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[1]& 0x00FF]];
                   
+                   
                   usbtask = 0;
                }break;
             
@@ -1556,7 +1445,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    //[Vertikalbalken initWithFrame:Balkenrect];
    //[Vertikalbalken setLevel:177];
    [Vertikalbalken setNeedsDisplay:YES];
-   [self read_USB:NULL];
+   [self startRead];
 }
 
 - (void) windowClosing:(NSNotification*)note
@@ -1798,5 +1687,121 @@ NSLog(@"BeendenAktion");
 
 }
 
+
+- (NSDictionary*)datendic
+{
+   // Array an USB schicken
+   NSNotificationCenter* nc=[NSNotificationCenter defaultCenter];
+   NSMutableDictionary* SchnittdatenDic=[[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
+   
+   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"pwm"];
+   
+   /*
+    2013-08-02 09:14:29.023 USB_Stepper[1560:303] USB_DatenArray 0: (
+    (
+    39,
+    1,
+    8,
+    1,
+    34,
+    0,
+    39,
+    0,
+    39,
+    1,
+    8,
+    1,
+    34,
+    0,
+    39,
+    0,
+    0,
+    1,
+    0,
+    0,
+    76,
+    1
+    ),
+    (
+    217,
+    0,
+    75,
+    0,
+    27,
+    0,
+    79,
+    0,
+    217,
+    0,
+    75,
+    0,
+    27,
+    0,
+    79,
+    0,
+    0,
+    0,
+    0,
+    1,
+    76,
+    1
+    ),
+    (
+    238,
+    0,
+    37,
+    0,
+    26,
+    0,
+    170,
+    0,
+    238,
+    0,
+    37,
+    0,
+    26,
+    0,
+    170,
+    0,
+    0,
+    2,
+    0,
+    2,
+    76,
+    1
+    )
+    )
+    
+    */
+   //NSMutableArray* USB_DatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   for (int i=0;i<8;i++)
+   {
+      NSArray* temparray = [NSArray arrayWithObjects:[NSNumber numberWithInt:i],
+                            [NSNumber numberWithInt:2*i],
+                            [NSNumber numberWithInt:3*i],
+                            [NSNumber numberWithInt:4*i],
+                            [NSNumber numberWithInt:5*i],
+                            [NSNumber numberWithInt:6*i],
+                            [NSNumber numberWithInt:7*i],
+                            [NSNumber numberWithInt:8*i],
+                            [NSNumber numberWithInt:i],nil];
+      [USB_DatenArray addObject:temparray];
+   }
+   
+   [SchnittdatenDic setObject:USB_DatenArray forKey:@"USB_DatenArray"];
+   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"cncposition"];
+   [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"home"]; //
+   
+   
+   
+   [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"art"]; //
+   NSLog(@"reportUSB_SendArray SchnittdatenDic: %@",[SchnittdatenDic description]);
+   
+   //   [nc postNotificationName:@"usbschnittdaten" object:self userInfo:SchnittdatenDic];
+   //NSLog(@"reportUSB_SendArray delayok: %d",delayok);
+   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"delayok"];
+   
+   return (NSDictionary*)SchnittdatenDic;
+}
 
 @end
