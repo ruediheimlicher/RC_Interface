@@ -28,7 +28,7 @@
    {
       if (stufe)
       {
-         float delta = stufe *1.0/4;
+         float delta = stufe *1.0/16;
       float position = STARTWERT + i*SCHRITTWEITE;
       float exponent = delta*position/1000;
       float wert = exp(exponent);
@@ -48,11 +48,11 @@
    
    for (int i=0;i<VEKTORSIZE;i++)
    {
-      //float wert = (exparr[i]-exparr[0])*1000 + STARTWERT;
+      float wert = (exparr[i]-exparr[0])*1000 + STARTWERT;
       wertarray[i]=(exparr[i]-exparr[0])*1000 + STARTWERT;
       //fprintf(stderr,"%2d\t%2.2f\n",i,wert);
    }
-
+   //fprintf(stderr,"\n");
    maxwert=wertarray[VEKTORSIZE-1];
    //fprintf(stderr,"maxwert: %2.2f\n",maxwert);
    for (int i=0;i<VEKTORSIZE;i++)
@@ -60,15 +60,18 @@
       float wert = STARTWERT + (wertarray[i]-STARTWERT)/(maxwert - STARTWERT) * (ENDWERT - STARTWERT) ;
      intwertarray[i]= round(wert);
       int intwert = round(wert);
-     // if (i<8)
+      if (i % 16 ==0)
       {
-       //  fprintf(stderr,"%2d\t%2.2f\n",i,wert);
+         //fprintf(stderr,"%2d\t%2.2f",i,wert);
+         //fprintf(stderr,"%d\t",intwert);
       }
       
       [arrayLO addObject:[NSNumber numberWithInt:(intwert & 0xFF)]];
       [arrayHI addObject:[NSNumber numberWithInt:(intwert >>8)]];
   
    }
+   //fprintf(stderr,"%d\t",intwertarray[VEKTORSIZE-1]);
+   //fprintf(stderr,"\n");
 
    
    return [NSArray arrayWithObjects:arrayLO,arrayHI, nil];

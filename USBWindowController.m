@@ -198,6 +198,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                                    [NSString stringWithFormat:@"%d",i+9],nil];
       [USB_DatenArray addObject:tempArray];
    }
+   
+   
+   
    //NSLog(@"reportWriteUSB_DatenArray: %@",[USB_DatenArray description]);
    [self write_Abschnitt];
    [self USB_Aktion:NULL]; // Antwort lesen
@@ -321,9 +324,73 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    [USB_DatenArray addObject:codeArray];
    [self write_EEPROM];
-[self USB_Aktion:NULL]; // Antwort lesen
+   [self USB_Aktion:NULL]; // Antwort lesen
    
 }
+
+
+- (IBAction)reportRead_1_EEPROM_Increment:(id)sender
+
+{
+   // D4
+   //NSLog(@"\n***");
+   NSLog(@"reportRead_1_EEPROM");
+   Dataposition = 0;
+   usbtask = EEPROM_READ_TASK;
+   [USB_DatenArray removeAllObjects];
+   // Request einrichten
+   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xD4]];
+   int EE_Startadresse = [EE_StartadresseFeld intValue];
+   uint8 lo = EE_Startadresse & 0x00FF;
+   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+   
+   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   
+   
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+   
+   int EE_Data = [EE_DataFeld intValue];
+   
+   NSLog(@"reportWrite_1_EEPROM Data: %X",EE_Data);
+   lo = EE_Data & 0x00FF;
+   
+   hi = (EE_Data & 0xFF00)>>8;
+   
+   [EE_datahi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   
+   
+   fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Data
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Data
+   
+   [USB_DatenArray addObject:codeArray];
+   [self write_EEPROM];
+   [self USB_Aktion:NULL]; // Antwort lesen
+   
+   EE_Startadresse++;
+   [EE_StartadresseFeld setIntValue:EE_Startadresse];
+   lo = EE_Startadresse & 0x00FF;
+   hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%02X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%02X",hi]];
+   
+   
+   //[self USB_Aktion:NULL]; // Antwort lesen
+   
+}
+
+
+
 
 - (IBAction)reportWriteEEPROM:(id)sender
 {
@@ -349,7 +416,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       int wert=0;
       for (int pos=0;pos<VEKTORSIZE;pos++)
       {
-         
          {
             wert=0;
          uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
@@ -357,6 +423,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          wert = hi;
          wert <<= 8;
          wert += lo;
+            
          //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
 //         fprintf(stderr,"\t%d",wert);
          //fprintf(stderr,"\t%d\t%d | ",lo,hi);
@@ -370,7 +437,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          wert += lo;
 //         fprintf(stderr,"\t%d",wert);
          //fprintf(stderr,"\t%d\t%d | ",lo,hi);
-//      fprintf(stderr,"\n");
+      //fprintf(stderr,"\n");
       
    }
 
@@ -384,7 +451,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [codeArray addObject:[NSString stringWithFormat:@"%d",0x00]]; // LO von Startadresse
    [codeArray addObject:[NSString stringWithFormat:@"%d",0x00]]; // HI von Startadresse
    int anzpages = 2*VEKTORSIZE/PAGESIZE;
-   NSLog(@"anz Datapages: %d",anzpages);
+   NSLog(@"reportWriteEEPROM anz Datapages: %d",anzpages);
    [codeArray addObject:[NSString stringWithFormat:@"%d",anzpages]]; // Anzahl Pages mit Daten
    
    [USB_DatenArray addObject:codeArray];
@@ -430,10 +497,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    }
    //NSLog(@"reportWriteEEPROM anzahl Abschnitte: %d",[USB_DatenArray count]);
    
-   //NSLog(@"reportWriteEEPROM Code Abschnitt 0 : %@",[USB_DatenArray objectAtIndex:0]);
+  // NSLog(@"reportWriteEEPROM Code Abschnitt 0 : %@",[USB_DatenArray objectAtIndex:1]);
   // NSLog(@"reportWriteEEPROM Abschnitt 1 : %@",[USB_DatenArray objectAtIndex:1]);
   //  NSLog(@"reportWriteEEPROM letzter Abschnitt : %@",[USB_DatenArray lastObject]);
-   [self write_EEPROM];
+ //  [self write_EEPROM];
+   
    [self USB_Aktion:NULL];
 }
 
@@ -524,6 +592,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)write_EEPROM
 {
+   NSLog(@"write_EEPROM");
 	//NSLog(@"write_EEPROM USB_DatenArray anz: %d\n USB_DatenArray: %@",[USB_DatenArray count],[USB_DatenArray description]);
    
    if (Dataposition < [USB_DatenArray count])
@@ -619,11 +688,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
 	//NSLog(@"writeAbschnitt USB_DatenArray anz: %d\n USB_DatenArray: %@",[USB_DatenArray count],[USB_DatenArray description]);
    //NSLog(@"writeAbschnitt USB_DatenArray anz: %d",[USB_DatenArray count]);
-
+   NSLog(@"writeAbschnitt");
+   
    if (Dataposition < [USB_DatenArray count])
 	{
-      
- 		
       char*      sendbuffer;
       sendbuffer=malloc(EE_PAGESIZE);
       //
@@ -673,9 +741,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
       
       else
+       
       {
-       fprintf(stderr,"\nwrite_Abschnitt sendbuffer\n");
-         if (Dataposition<2)
+       
+       fprintf(stderr,"\nwrite_Abschnitt Dataposition: %d sendbuffer\n",Dataposition);
+         if (Dataposition<8)
          {
          for (int k=0;k<16;k+=2) // 32 16Bit-Werte
          {
@@ -685,9 +755,20 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          }
          }// for i
       }
-      
+      */
+      fprintf(stderr,"write_Abschnitt Dataposition: %d sendbuffer\n",Dataposition);
+      if (Dataposition<4)
+      {
+         for (int k=0;k<32;k+=2) // 32 16Bit-Werte
+         {
+            fprintf(stderr,"%02X\t%02X\t",(uint8)sendbuffer[k],(uint8)sendbuffer[k+1]);
+            //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+            //fprintf(stderr,"%d\t",wert);
+         }
+      }// for i
+
       fprintf(stderr,"\n");
-       */
+       
       
       int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
       
@@ -786,7 +867,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                
             switch (code)
             {
-               case 0xC1:
+               case 0xC1: // Write EE Abschnitt an Dataposition senden
                {
                   //NSLog(@"********  B1 result: %d dataRead: %X testadress: %X testdata: %X indata: %X Dataposition: %d",result,code,(UInt8)buffer[2],(UInt8)buffer[3],(UInt8)buffer[4] ,Dataposition);
                   //fprintf(stderr,"echo C1:\t");
@@ -799,6 +880,18 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   if (Dataposition < [USB_DatenArray count])
                   {
                      fprintf(stderr,"*");
+                     
+                     fprintf(stderr," echo\n");
+                     for (int k=0;k<16;k+=2) // 32 16Bit-Werte
+                     {
+                        fprintf(stderr,"%02X\t%02X\t",(uint8)buffer[k],(uint8)buffer[k+1]);
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                  
+                  
+                  fprintf(stderr,"\n\n");
+
                      [self write_Abschnitt];
                   }
                   else
@@ -807,7 +900,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   }
                }break;
                   
-               case 0xC2:
+               case 0xC2: // letzter Abschnitt, Write EE beendet
                {
                   
                      fprintf(stderr," end\n");
@@ -818,7 +911,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
                }break;
                   
-               case 0xC5:
+               case 0xC5: // write EEPROM Byte
                {
                   fprintf(stderr,"echo write EEPROM Byte ");
                   
@@ -851,7 +944,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             
             switch (code)
             {
-               case 0xD5:
+               case 0xD5: // read EEPROM Byte
                {
                   fprintf(stderr,"echo read EEPROM Byte ");
                   // buffer1 ist data
@@ -1014,6 +1107,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 /*******************************************************************/
 - (void)USB_Aktion:(NSNotification*)note
 {
+   NSLog(@"USB_Aktion");
    //NSLog(@"USB_Aktion usbstatus: %d usb_present: %d",usbstatus,usb_present());
    int antwort=0;
    int delayok=0;
@@ -1111,14 +1205,19 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                return;
             }
          }
-         
-         
-         
+         NSLog(@"USB_Aktion Kontrolle Abschnitt 0 vor writeAbschnitt. Dataposition: %d",Dataposition);
+         for (i=0;i<[tempUSB_DatenArray count];i++)
+         {
+            fprintf(stderr,"\t%02X",[[tempUSB_DatenArray objectAtIndex:i]intValue] & 0xFF);
+         }
+         fprintf(stderr,"\n");
+         //Dataposition++;
          [self write_Abschnitt];
+         
       } // if count
       
       //NSLog(@"USB_Aktion Start Timer");
-      
+   
       // home ist 1 wenn homebutton gedrŸckt ist
       NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:0],@"home", nil];
       
@@ -1127,7 +1226,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       {
          if ([readTimer isValid])
          {
-            NSLog(@"USB_Aktion laufender timer inval");
+            //NSLog(@"USB_Aktion laufender timer inval");
             [readTimer invalidate];
             
          }
