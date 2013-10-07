@@ -184,10 +184,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
    NSLog(@"reportWriteUSB");
    Dataposition = 0;
+   [USB_DatenArray removeAllObjects];
    
    for (int i=0;i<8;i++)
    {
-      NSMutableArray* tempArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%d",0xA2],   [NSString stringWithFormat:@"%d",i+3],
+      NSMutableArray* tempArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%d",0xA2],
+                                   [NSString stringWithFormat:@"%d",i+3],
                                    [NSString stringWithFormat:@"%d",i+4],
                                    [NSString stringWithFormat:@"%d",i+5],
                                    [NSString stringWithFormat:@"%d",i+6],
@@ -198,10 +200,126 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    }
    //NSLog(@"reportWriteUSB_DatenArray: %@",[USB_DatenArray description]);
    [self write_Abschnitt];
+   [self USB_Aktion:NULL]; // Antwort lesen
 }
+
+- (IBAction)reportRead_1_EEPROM:(id)sender
+{
+   // D4
+   NSLog(@"\n***");
+   NSLog(@"reportRead_1_EEPROM");
+   Dataposition = 0;
+   usbtask = EEPROM_READ_TASK;
+   [USB_DatenArray removeAllObjects];
+   // Request einrichten
+   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xD4]];
+   int EE_Startadresse = [EE_StartadresseFeld intValue];
+   uint8 lo = EE_Startadresse & 0x00FF;
+   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+   fprintf(stderr,"Adresse: \t%d\t%d \thex \t%2X\t%2X\n",lo,hi, lo, hi);
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+
+   [USB_DatenArray addObject:codeArray];
+   [self write_EEPROM];
+   //[self USB_Aktion:NULL]; // Antwort lesen
+
+
+
+}
+
+- (IBAction)reportRead_EEPROM_page:(id)sender
+{
+   // D4
+   NSLog(@"\n***");
+   NSLog(@"reportRead_EEPROM_page");
+   Dataposition = 0;
+   usbtask = EEPROM_READ_TASK;
+   int startadresse = [EE_StartadresseFeld intValue];
+   for (int i=startadresse;i< EE_PAGESIZE;i++)
+   {
+       
+      [USB_DatenArray removeAllObjects];
+      // Request einrichten
+      NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
+      [codeArray addObject:[NSString stringWithFormat:@"%d",0xD4]];
+      int EE_Startadresse = i;
+      uint8 lo = EE_Startadresse & 0x00FF;
+      uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+      
+      [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+      [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+      
+      fprintf(stderr,"Adresse: \t%d\t%d \thex \t%2X\t%2X\n",lo,hi, lo, hi);
+      [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+      [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+      
+      [USB_DatenArray addObject:codeArray];
+      [self write_EEPROM];
+   }
+   //[self USB_Aktion:NULL]; // Antwort lesen
+   
+   
+   
+}
+
+
+
 
 - (IBAction)reportWrite_1_EEPROM:(id)sender
 {
+   // C4
+   NSLog(@"\n***");
+   NSLog(@"reportWrite_1_EEPROM");
+   usbtask = EEPROM_WRITE_TASK;
+   //Daten berechnen
+   Dataposition = 0;
+   [USB_DatenArray removeAllObjects];
+   // Erster Abschnitt enthŠlt code
+   
+   // Stufe 0
+   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xC4]];
+   
+    int EE_Startadresse = [EE_StartadresseFeld intValue];
+   uint8 lo = EE_Startadresse & 0x00FF;
+   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+
+   
+   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+
+
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+   
+   int EE_Data = [EE_DataFeld intValue];
+   
+   NSLog(@"reportWrite_1_EEPROM Data: %X",EE_Data);
+   lo = EE_Data & 0x00FF;
+   
+   hi = (EE_Data & 0xFF00)>>8;
+   
+   [EE_datahi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+
+
+   fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Data
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Data
+   
+   [USB_DatenArray addObject:codeArray];
+   [self write_EEPROM];
+[self USB_Aktion:NULL]; // Antwort lesen
    
 }
 
@@ -260,9 +378,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    // Stufe 0
    NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xA0]];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xC0]];
    [codeArray addObject:[NSString stringWithFormat:@"%d",0x00]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0x01]]; // HI von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0x00]]; // HI von Startadresse
    int anzpages = 2*VEKTORSIZE/PAGESIZE;
    NSLog(@"anz Datapages: %d",anzpages);
    [codeArray addObject:[NSString stringWithFormat:@"%d",anzpages]]; // Anzahl Pages mit Daten
@@ -561,15 +679,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       //NSLog(@"code: %d",sendbuffer[16]);
       
-      /*
+      
       fprintf(stderr,"write_EEPROM sendbuffer\n");
-      for (i=0;i<PAGESIZE;i++ )
+      for (i=0;i<8;i++ )
       {
          fprintf(stderr,"%X\t",sendbuffer[i] & 0xFF);
          
       }
       fprintf(stderr,"\n");
-      */
+      
       
       int senderfolg= rawhid_send(0, sendbuffer, EE_PAGESIZE, 50);
       
@@ -655,30 +773,33 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       //NSLog(@"code: %d",sendbuffer[16]);
       
-      
+      /*
       if (Dataposition ==0)
       {
          fprintf(stderr,"write_Abschnitt sendbuffer position 0\n");
          for (int i=0;i<8;i++)
          {
-            fprintf(stderr,"%d\t",(uint8)sendbuffer[i]);
+            fprintf(stderr,"%X\t",(uint8)sendbuffer[i]);
          }
          fprintf(stderr,"\n");
       }
       
       else
       {
-       //fprintf(stderr,"write_Abschnitt sendbuffer\n");
-       //  for (int i=0;i<PAGESIZE;i+=2) // 32 16Bit-Werte
+       fprintf(stderr,"\nwrite_Abschnitt sendbuffer\n");
+         if (Dataposition<2)
          {
-            //fprintf(stderr,"%d\t",(uint8)sendbuffer[i]);
-       //     int wert = (uint8)sendbuffer[i] | ((uint8)sendbuffer[i+1]<<8);
-       //     fprintf(stderr,"%d\t",wert);
+         for (int k=0;k<16;k+=2) // 32 16Bit-Werte
+         {
+            fprintf(stderr,"%X\t%X\t",(uint8)sendbuffer[k],(uint8)sendbuffer[k+1]);
+            int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+            fprintf(stderr,"%d\t",wert);
          }
+         }// for i
       }
       
-      //fprintf(stderr,"\n");
-       
+      fprintf(stderr,"\n");
+       */
       
       int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
       
@@ -746,14 +867,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    {
       if (result)
       {
+         //fprintf(stderr,"USB Eingang:\t"); // Potentiometerstellungen
          for (int i=0;i<8;i++)
          {
-            UInt8 wertL = (UInt8)buffer[2*i];
-            UInt8 wertH = ((UInt8)buffer[2*i+1]);
-            int wert = wertL | (wertH<<8);
+ //           UInt8 wertL = (UInt8)buffer[2*i];
+ //           UInt8 wertH = ((UInt8)buffer[2*i+1]);
+ //           int wert = wertL | (wertH<<8);
             //int wert = wertL + (wertH );
             //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-           // fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
+           // fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
            // fprintf(stderr," | ");
          }
          //fprintf(stderr,"\n");
@@ -773,79 +895,142 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             //NSLog(@"code raw result: %d dataRead: %X",result,code );
             if (code)
             {
-               if (code == 0xB1)
+               
+            switch (code)
+            {
+               case 0xC1:
                {
-                  
-                  
                   //NSLog(@"********  B1 result: %d dataRead: %X testadress: %X testdata: %X indata: %X Dataposition: %d",result,code,(UInt8)buffer[2],(UInt8)buffer[3],(UInt8)buffer[4] ,Dataposition);
-                  
+                  //fprintf(stderr,"echo C1:\t");
+                  for (int i=0;i<16;i++)
+                  {
+                     //fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                  }
+                  //fprintf(stderr,"\n");
+
                   if (Dataposition < [USB_DatenArray count])
                   {
                      fprintf(stderr,"*");
-                   [self write_Abschnitt];
+                     [self write_Abschnitt];
                   }
                   else
                   {
-                  
-                  
-                  usbtask =0;
+                      usbtask =0;
                   }
-               }
-               
-               if (code == 0xB2)
-               {
-                  fprintf(stderr," end\n");
+               }break;
                   
-                  //NSLog(@"++++  B2 ");
-                  //[self startRead];
+               case 0xC2:
+               {
+                  
+                     fprintf(stderr," end\n");
+                     
+                     //NSLog(@"++++  B2 ");
+                     //[self startRead];
+                     usbtask = 0;
+
+               }break;
+                  
+               case 0xC5:
+               {
+                  fprintf(stderr,"echo write EEPROM Byte ");
+                  
+                  for (int i=0;i<8;i++)
+                  {
+                     UInt8 wertL = (UInt8)buffer[2*i];
+                     UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                     int wert = wertL | (wertH<<8);
+                     //int wert = wertL + (wertH );
+                     //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                     fprintf(stderr,"+%X\t",(buffer[i]& 0xFF));
+                     //fprintf(stderr," | ");
+                  }
+                  fprintf(stderr,"\n");
+                  
                   usbtask = 0;
-               }
-            }
-         }break;
+               }break;
+                  
+            }// switch code
             
+            
+               
+            } // if code EEPROM_WRITE_TASK
+            
+         }break;
+         
+         case EEPROM_READ_TASK:
+         {
+            UInt8 code = (UInt8)buffer[0];
+            
+            switch (code)
+            {
+               case 0xD5:
+               {
+                  fprintf(stderr,"echo read EEPROM Byte ");
+                  
+                  for (int i=0;i<8;i++)
+                  {
+                     UInt8 wertL = (UInt8)buffer[2*i];
+                     UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                     int wert = wertL | (wertH<<8);
+                     
+                     //int wert = wertL + (wertH );
+                     //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                     fprintf(stderr,"*%X\t",(buffer[i]& 0xFF));
+                     //fprintf(stderr," | ");
+                  }
+                  fprintf(stderr,"\n");
+                  
+                  
+                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%02X\t|\t%d",(UInt8)buffer[1]& 0xFF,(UInt8)buffer[1]& 0xFF]];
+                  [EE_datalo setIntValue:(UInt8)buffer[1]& 0x00FF];
+                  [EE_datahi setIntValue:(((UInt8)buffer[1]& 0xFF00)>>8)];
+                  
+                  
+                  usbtask = 0;
+               }break;
+            
+            }// switch code
+         //   
+         }break;
             
          default:
          {
+            UInt8 code = (UInt8)buffer[0];
+            switch (code)
+           {
+               case 0xA3:
+              {
+                 fprintf(stderr,"echo A3: ");
+                 for (int i=0;i<8;i++)
+                 {
+                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                    //fprintf(stderr," | ");
+                 }
+                 fprintf(stderr,"\n");
+
+              }break;
+                  
+               default:
+                 
+                  break;
+            } // switch code
+            
             int i=0;
             if (buffer[0])
             {
-               for (i=0;i<16;i++)
+               for (i=0;i<8;i++)
                {
                   //UInt8 wertL = (UInt8)buffer[2*i];
                  // UInt8 wertH = ((UInt8)buffer[2*i+1]);
                   //int wert = wertL | (wertH<<8);
                   //int wert = wertL + (wertH );
                   //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                  //fprintf(stderr,"%d\t",(buffer[i]& 0xFF));
+                  //fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
                   //fprintf(stderr," | ");
                }
                //fprintf(stderr,"\n");
             }
             
-            
-            
-            if ((UInt8)buffer[0]>0)
-            {
-               /*
-                for (i=0; i<16;i++)
-                {
-                //int zahlenwert = [[NSNumber numberWithInt:(UInt8)buffer[i]]intValue];
-                int zahlenwert = (UInt8)buffer[i];
-                char b = buffer[i];
-                if (i==0)
-                {
-                fprintf(stderr,"%d * ",i);
-                }
-                fprintf(stderr,"\t%d",zahlenwert);
-                
-                //NSLog(@"i: %d char: %x data: %d",i,buffer[i],[[NSNumber numberWithInt:(UInt8)buffer[i]]intValue]);
-                }
-                
-                int adc = (UInt8)buffer[5] | ((UInt8)buffer[6]<<8) ;
-                fprintf(stderr,"\t%d",adc);
-                fprintf(stderr,"\n");
-                */
-            }
             
             
             int runde = (UInt8)buffer[4];
@@ -1371,6 +1556,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    //[Vertikalbalken initWithFrame:Balkenrect];
    //[Vertikalbalken setLevel:177];
    [Vertikalbalken setNeedsDisplay:YES];
+   [self read_USB:NULL];
 }
 
 - (void) windowClosing:(NSNotification*)note

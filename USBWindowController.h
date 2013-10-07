@@ -31,6 +31,7 @@
 
 
 #define EEPROM_WRITE_TASK     1
+#define EEPROM_READ_TASK     2
 
 
 
@@ -146,7 +147,12 @@
    IBOutlet rVertikalanzeige* Vertikalbalken;
    
    IBOutlet id       Taskwahl;
-  
+   IBOutlet id       EE_StartadresseFeld;
+   IBOutlet id       EE_startadresselo;
+   IBOutlet id       EE_startadressehi;
+   IBOutlet id       EE_DataFeld;
+   IBOutlet id       EE_datalo;
+   IBOutlet id       EE_datahi;
 }
 
 
@@ -163,6 +169,8 @@
 - (IBAction)reportWriteUSB:(id)sender;
 
 - (IBAction)reportWriteEEPROM:(id)sender;
+- (IBAction)reportWrite_1_EEPROM:(id)sender;
+- (IBAction)reportRead_1_EEPROM:(id)sender;
 - (IBAction)reportHalt:(id)sender;
 
 - (void)sendTask:(int)status;
