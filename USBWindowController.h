@@ -32,7 +32,7 @@
 
 #define EEPROM_WRITE_TASK     1
 #define EEPROM_READ_TASK     2
-
+#define EEPROM_AUSGABE_TASK   5
 
 
 
@@ -173,6 +173,9 @@
 
 - (IBAction)reportWriteEEPROM:(id)sender;
 - (IBAction)reportWrite_1_EEPROM:(id)sender;
+
+- (IBAction)reportWrite_1_Line:(id)sender;
+
 - (IBAction)reportRead_1_EEPROM:(id)sender;
 - (IBAction)reportHalt:(id)sender;
 
