@@ -417,6 +417,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    {
       //fprintf(stderr,"%d",stufe);
       int wert=0;
+      checksumme=0;
       for (int pos=0;pos<VEKTORSIZE;pos++)
       {
          if (pos%DIV == 0)
@@ -428,11 +429,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             wert <<= 8;
             wert += lo;
             
+            checksumme += wert;
             //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
             fprintf(stderr,"\t%d",wert);
             //fprintf(stderr,"\t%d\t%d",lo,hi);
          }
       }
+      
+
       wert=0;
       uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]lastObject]intValue];
       uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]lastObject]intValue];
@@ -442,11 +446,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //         fprintf(stderr,"\t%d",wert);
       //fprintf(stderr,"\t%d\t%d | ",lo,hi);
       fprintf(stderr,"\n");
+      fprintf(stderr,"checksumme: \t%d\n",checksumme);
+      [ChecksummenArray addObject:[NSNumber numberWithInt:checksumme]];
       
    }
-   
-   
-   
+   NSLog(@"ChecksummenArray count: %d : %@",[ChecksummenArray count],[ChecksummenArray description]);
+      
    // ******************************************************************************************
    // Erster Abschnitt enthŠlt code
    // ******************************************************************************************
@@ -488,7 +493,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    for (int stufe=0;stufe<1;stufe++)
    {
-      
+      checksumme =0;
       NSMutableArray* tempArray = [[NSMutableArray alloc]initWithCapacity:0];
       //[tempArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
       
@@ -506,6 +511,20 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
             //[tempArray addObject:[NSString stringWithFormat:@"%d",[[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue]]];
             zaehler++;
+            
+            int wert=0;
+            uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
+            uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
+            wert = hi;
+            wert <<= 8;
+            wert += lo;
+            
+            checksumme += wert;
+
+            
+
+            
+            
             //NSLog(@"pos: %d zaehler: %d",pos,zaehler);
             //if ((pos%PAGESIZE) == PAGESIZE-1) // letztes Element geladen
             if ((zaehler) == VEKTORSIZE/DIV) // letztes Element geladen
@@ -523,7 +542,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
       [USB_DatenArray addObject:[tempArray copy]];
       [tempArray removeAllObjects];
-  
+  fprintf(stderr,"checksumme: \t%d\n",checksumme);
 
    }
    //  NSLog(@"reportWrite_1_line anzahl Abschnitte: %@",[USB_DatenArray description]);
@@ -746,48 +765,192 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
-- (void)send_EEPROMpage:(int)EEPROMpage
+- (IBAction)reportWritePart:(id)sender
+{
+   // ******************************************************************************************
+   // Daten berechnen
+   // ******************************************************************************************
+   
+   ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   int DIV = 32;
+   
+   for (int stufe=0;stufe<4;stufe++)
+   {
+      
+      NSArray* dataArray = [Math expoArrayMitStufe:stufe];
+      [ExpoDatenArray addObject:dataArray];
+      
+	}
+   
+   for (int stufe=0;stufe<4;stufe++)
+   {
+      //fprintf(stderr,"%d",stufe);
+      int wert=0;
+      checksumme=0;
+      for (int pos=0;pos<VEKTORSIZE;pos++)
+      {
+         if (pos%DIV == 0)
+         {
+            wert=0;
+            uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
+            uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
+            wert = hi;
+            wert <<= 8;
+            wert += lo;
+            
+            checksumme += wert;
+            //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+            fprintf(stderr,"\t%d",wert);
+            //fprintf(stderr,"\t%d\t%d",lo,hi);
+         }
+      }
+      
+      
+      wert=0;
+      uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]lastObject]intValue];
+      uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]lastObject]intValue];
+      wert = hi;
+      wert <<= 8;
+      wert += lo;
+      //         fprintf(stderr,"\t%d",wert);
+      //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+      fprintf(stderr,"\n");
+      fprintf(stderr,"checksumme: \t%d\n",checksumme);
+      [ChecksummenArray addObject:[NSNumber numberWithInt:checksumme]];
+      
+   }
+   NSLog(@"ChecksummenArray count: %u : %@",(int)[ChecksummenArray count],[ChecksummenArray description]);
+   
+   // ******************************************************************************************
+   // Erster Abschnitt enthŠlt code
+   // ******************************************************************************************
+   Dataposition = 0;
+   [USB_DatenArray removeAllObjects];
+   
+   // Stufe 0
+   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:EE_PAGESIZE];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xCA]];
+   
+   
+   // Startadresse aus Eingabefeld
+   
+   int EE_Startadresse = [EE_StartadresseFeld intValue];
+   uint8 lo = EE_Startadresse & 0x00FF;
+   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+
+   [self send_EEPROMPartMitStufe:0 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
+
+}
+
+- (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse
 {
    
    //EEPROMposition++;
    char*      sendbufferLO = malloc(PAGESIZE);
    char*      sendbufferHI = malloc(PAGESIZE);
+   uint8_t*    partbuffer = malloc(EE_PARTSIZE);
    
-   int stufe = 0;
-   if (EEPROMpage < VEKTORSIZE / PAGESIZE)
+   uint8_t*      sendbuffer;
+   sendbuffer=malloc(EE_PAGESIZE);
+   NSScanner* theScanner;
+   unsigned	  value;
+   
    {
-      int startposition = EEPROMpage * PAGESIZE;
-      for (int pos = 0;pos < PAGESIZE;pos++)
+     // int startposition = EEPROMpage * PAGESIZE;
+      for (int pos = 0;pos < EE_PARTSIZE;pos++)
       {
          
-         //Wert an Stelle (pos + startposition) in ExpoDatenArray
-         int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:(pos + startposition)]intValue];
-         sendbufferLO[pos] = lo;
+         if (pos % 2) // ungerade, wert fuer lo
+         {
+            //Wert an Stelle (pos + startposition) in ExpoDatenArray
+            int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:(pos + startadresse)]intValue];
+            sendbufferLO[pos] = lo;
+            partbuffer[pos] = lo;
+            
+         }
+         else
+         {
+            int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:(pos + startadresse)]intValue];
+            sendbufferHI[pos] = hi;
+            partbuffer[pos] = hi;
+
+            
+         }
          
-         int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:(pos + startposition)]intValue];
-         sendbufferHI[pos] = hi;
+         
       }
       
-      fprintf(stderr,"send_EEPROMpage %d\t%d\t",EEPROMpage, startposition);
-      for (int pos = 0;pos < PAGESIZE;pos++)
+      fprintf(stderr,"send_EEPROMPartAnAdresse %d\n", startadresse);
+      for (int pos = 0;pos < EE_PARTSIZE;pos++)
       {
-         int wert = sendbufferHI[pos];
-         wert <<= 8;
-         wert += sendbufferLO[pos];
+         //int wert = partbuffer[pos+1];
+         //wert <<= 8;
+         //wert += partbuffer[pos];
          //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
-         fprintf(stderr,"\t%d",wert);
+         fprintf(stderr,"%d\t",partbuffer[pos]);
          
       }
       fprintf(stderr,"\n");
       
    }
-   
-   
-   
-   
+  
    free (sendbufferLO);
    free (sendbufferHI);
    
+      for (int i=0;i<EE_PARTSIZE;i++)
+   {
+          NSString*  tempHexString=[NSString stringWithFormat:@"%02X",(uint8_t)partbuffer[i]];
+         NSLog(@"i: %d tempWert: %d tempWert hex: %02X tempHexString: %@",i,partbuffer[i],partbuffer[i],tempHexString);
+         theScanner = [NSScanner scannerWithString:tempHexString];
+         
+         if ([theScanner scanHexInt:&value])
+         {
+            sendbuffer[EE_PARTSIZE+i] = (char)value;
+            //fprintf(stderr,"%d\t%d\n",tempWert, (char)value);
+         }
+         else
+         {
+            NSRunAlertPanel (@"Invalid data format", @"Please only use hex values between 00 and FF.", @"OK", nil, nil);
+            //free (sendbuffer);
+            return;
+         }
+      //sendbuffer[i]=(char)[[tempUSB_DatenArray objectAtIndex:i]UTF8String];
+   }
+   sendbuffer[0] = 0xCA;
+   sendbuffer[1] = startadresse & 0x00FF;
+   sendbuffer[2] = (startadresse & 0xFF00)>>8;
+   
+   fprintf(stderr,"send_EEPROMPART sendbuffer\n");
+   
+   {
+      for (int k=0;k<EE_PAGESIZE;k++) // 32 16Bit-Werte
+      {
+         if (k==EE_PARTSIZE)
+         {
+            fprintf(stderr,"\n");
+         }
+         fprintf(stderr,"%02X\t",(uint8)sendbuffer[k]);
+         
+         //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+         //fprintf(stderr,"%d\t",wert);
+      }
+   }// for i
+fprintf(stderr,"\n");
+   
+   int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
+   
+   NSLog(@"send_EEPROMPART erfolg: %d Dataposition: %d",senderfolg,Dataposition);
+
+ free (partbuffer);
+   free(sendbuffer);
 }
 
 
@@ -809,7 +972,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       NSScanner *theScanner;
       unsigned	  value;
-      NSLog(@"write_EEPROM Dataposition: %d tempUSB_DatenArray count: %d",Dataposition,[tempUSB_DatenArray count]);
+      NSLog(@"write_EEPROM Dataposition: %d tempUSB_DatenArray count: %d",Dataposition,(int)[tempUSB_DatenArray count]);
       //NSLog(@"loop start");
       //NSDate *anfang = [NSDate date];
       for (i=0;i<[tempUSB_DatenArray count];i++)
@@ -1601,7 +1764,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    //NSLog(@"aa: %d bb: %d",aa,bb);
 	
    Math = [[rMath alloc]init];
-   
+   ChecksummenArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+   checksumme=0;
+
    
    /*
     Daten fuer EXPO-Verlauf berechnen
@@ -1852,7 +2017,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    //[Vertikalbalken initWithFrame:Balkenrect];
    //[Vertikalbalken setLevel:177];
    [Vertikalbalken setNeedsDisplay:YES];
+   
+   ChecksummenArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+   checksumme=0;
+
    [self startRead];
+   
 }
 
 - (void) windowClosing:(NSNotification*)note

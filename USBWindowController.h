@@ -25,9 +25,11 @@
 #define USBREMOVED            6
 
 
-#define PAGESIZE              64
+#define PAGESIZE              32
 
 #define EE_PAGESIZE           64
+
+#define EE_PARTSIZE           32
 
 
 #define EEPROM_WRITE_TASK     1
@@ -142,6 +144,9 @@
    
    int lastdata0;
    int lastdata1;
+   
+   int checksumme;
+   NSMutableArray*	ChecksummenArray;
 
    
    IBOutlet rVertikalanzeige* Vertikalbalken;
@@ -175,13 +180,17 @@
 - (IBAction)reportWrite_1_EEPROM:(id)sender;
 
 - (IBAction)reportWrite_1_Line:(id)sender;
+- (IBAction)reportWritePart:(id)sender;
 
 - (IBAction)reportRead_1_EEPROM:(id)sender;
+
 - (IBAction)reportHalt:(id)sender;
 
 - (void)sendTask:(int)status;
 
 - (void)USB_Aktion:(NSNotification*)note;
+
+- (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse;
 @end
 
 
