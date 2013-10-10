@@ -274,13 +274,43 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 
-
-
 - (IBAction)reportWrite_1_EEPROM:(id)sender
+{
+   // D4
+   NSLog(@"\n***");
+   NSLog(@"reportWrite_1_EEPROM");
+   Dataposition = 0;
+   usbtask = EEPROM_READ_TASK;
+   [USB_DatenArray removeAllObjects];
+   // Request einrichten
+   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xC4]];
+   int EE_Startadresse = [EE_StartadresseFeld intValue];
+   uint8 lo = EE_Startadresse & 0x00FF;
+   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+   
+   
+   fprintf(stderr,"Adresse: \t%d\t%d \thex \t%2X\t%2X\n",lo,hi, lo, hi);
+   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
+   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
+   
+   [USB_DatenArray addObject:codeArray];
+   [self write_EEPROM];
+   //[self USB_Aktion:NULL]; // Antwort lesen
+   [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
+   
+   
+}
+
+- (IBAction)reportWrite_1_Byte:(id)sender
 {
    // C4
    NSLog(@"\n***");
-   NSLog(@"reportWrite_1_EEPROM");
+   NSLog(@"reportWrite_1_Byte");
    usbtask = EEPROM_WRITE_TASK;
    //Daten berechnen
    Dataposition = 0;
@@ -294,29 +324,75 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
     int EE_Startadresse = [EE_StartadresseFeld intValue];
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
+   
+   
+   int wert=0;
+   uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
+
+   data = 0x14;
+    
+   [EE_DataFeld setIntValue: data];
+   
+    fprintf(stderr,"\n");
+   //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+   fprintf(stderr,"data:\t%d\n",data);
+   //fprintf(stderr,"\t%d\t%d",lo,hi);
+
 
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
    
-   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   fprintf(stderr,"Adresse lo:\t%d\thi: \t%d\n",lo,hi);
    
    [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
    [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
    
    int EE_Data = [EE_DataFeld intValue];
    
-   NSLog(@"reportWrite_1_EEPROM Data: %X",EE_Data);
+   NSLog(@"reportWrite_1_Byte Data: %X ",EE_Data);
    lo = EE_Data & 0x00FF;
    
    hi = (EE_Data & 0xFF00)>>8;
    
-   [EE_datahi setStringValue:[NSString stringWithFormat:@"%X",hi]];
-   [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   //[EE_datahi setStringValue:[NSString stringWithFormat:@"%X",datahi]];
+   [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",data]];
 
 
    fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
    
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0]]; // LO von Data
+
+   uint8_t*      sendbuffer;
+   sendbuffer=malloc(USB_DATENBREITE);
+   
+   sendbuffer[0] = 0xC4;
+   sendbuffer[1] = EE_Startadresse & 0x00FF;
+   sendbuffer[2] = (EE_Startadresse & 0xFF00)>>8;
+
+   NSScanner* theScanner;
+   unsigned	  value;
+   NSString*  tempHexString=[NSString stringWithFormat:@"%02X",(uint8_t)data];
+   //NSLog(@"i: %d tempWert: %d tempWert hex: %02X tempHexString: %@",i,partbuffer[i],partbuffer[i],tempHexString);
+   theScanner = [NSScanner scannerWithString:tempHexString];
+   
+   if ([theScanner scanHexInt:&value])
+   {
+      sendbuffer[3] = (char)value;
+      //fprintf(stderr,"%d\t%d\n",tempWert, (char)value);
+   }
+   else
+   {
+      NSRunAlertPanel (@"Invalid data format", @"Please only use hex values between 00 and FF.", @"OK", nil, nil);
+      //free (sendbuffer);
+      return;
+   }
+
+   int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
+   
+   NSLog(@"reportWrite_1_EEPROM erfolg: %d",senderfolg);
+   
+   /*
+   
+   [codeArray addObject:[NSString stringWithFormat:@"%d",data]]; // LO von Data
    [codeArray addObject:[NSString stringWithFormat:@"%d",0]]; // HI von Data
    [codeArray addObject:[NSString stringWithFormat:@"%d",0x13]]; // LO von Startadresse
    [codeArray addObject:[NSString stringWithFormat:@"%d",0x14]]; // HI von Startadresse
@@ -327,9 +403,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 
    [USB_DatenArray addObject:codeArray];
-   [self write_EEPROM];
-   [self USB_Aktion:NULL]; // Antwort lesen
    
+   [EE_StartadresseFeld setIntValue: EE_Startadresse+1];
+   [self write_EEPROM];
+//   [self USB_Aktion:NULL]; // Antwort lesen
+   */
 }
 
 
@@ -765,11 +843,70 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
+- (void)loadExpoDatenArray
+{
+   // ******************************************************************************************
+   // Daten berechnen
+   // ******************************************************************************************
+   
+      int DIV = 32;
+   
+   for (int stufe=0;stufe<4;stufe++)
+   {
+      
+      NSArray* dataArray = [Math expoArrayMitStufe:stufe];
+      [ExpoDatenArray addObject:dataArray];
+      
+	}
+   
+   for (int stufe=0;stufe<4;stufe++)
+   {
+      //fprintf(stderr,"%d",stufe);
+      int wert=0;
+      checksumme=0;
+      for (int pos=0;pos<VEKTORSIZE;pos++)
+      {
+         if (pos%DIV == 0)
+         {
+            wert=0;
+            uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
+            uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
+            wert = hi;
+            wert <<= 8;
+            wert += lo;
+            
+            checksumme += wert;
+            //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+            //      fprintf(stderr,"\t%d",wert);
+            //fprintf(stderr,"\t%d\t%d",lo,hi);
+         }
+      }
+      
+      
+      wert=0;
+      uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]lastObject]intValue];
+      uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]lastObject]intValue];
+      wert = hi;
+      wert <<= 8;
+      wert += lo;
+      //         fprintf(stderr,"\t%d",wert);
+      //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+      //  fprintf(stderr,"\n");
+      //  fprintf(stderr,"checksumme: \t%d\n",checksumme);
+      
+      
+      
+   }
+
+}
+
 - (IBAction)reportWritePart:(id)sender
 {
    usbtask = EEPROM_WRITE_TASK;
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
    [EE_taskmark setStringValue:@" "];
+   
+   /*
    // ******************************************************************************************
    // Daten berechnen
    // ******************************************************************************************
@@ -825,7 +962,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    }
   // NSLog(@"ChecksummenArray count: %u : %@",(int)[ChecksummenArray count],[ChecksummenArray description]);
-   
+   */
    // ******************************************************************************************
    // Erster Abschnitt enthŠlt code
    // ******************************************************************************************
@@ -1351,8 +1488,9 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   
                case 0xC5: // write EEPROM Byte
                {
-                  fprintf(stderr,"echo write EEPROM Byte ");
+                  fprintf(stderr,"echo C5 write EEPROM Byte \n");
                   
+                  /*
                   for (int i=0;i<12;i++)
                   {
                      UInt8 wertL = (UInt8)buffer[2*i];
@@ -1360,11 +1498,31 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                      int wert = wertL | (wertH<<8);
                      //int wert = wertL + (wertH );
                      //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                     fprintf(stderr,"+%X\t",(buffer[i]& 0xFF));
+                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
                      //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
-                  
+                  */
+                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                  {
+                     
+
+                     if (k==EE_PARTBREITE)
+                     {
+                        fprintf(stderr,"\n");
+                     }
+                     else if (k && k%(EE_PARTBREITE/2)==0)
+                     {
+                        fprintf(stderr,"*\t");
+                     }
+                     
+                     
+                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                     
+                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                     //fprintf(stderr,"%d\t",wert);
+                  }
+
                   usbtask = 0;
                }break;
                   
@@ -1555,6 +1713,47 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  fprintf(stderr,"\n");
 
               }break;
+                 
+              case 0xC5: // write EEPROM Byte
+              {
+                 fprintf(stderr,"\necho C5 default write EEPROM Byte \n");
+                 
+                 /*
+                  for (int i=0;i<12;i++)
+                  {
+                  UInt8 wertL = (UInt8)buffer[2*i];
+                  UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                  int wert = wertL | (wertH<<8);
+                  //int wert = wertL + (wertH );
+                  //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                  fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                  //fprintf(stderr," | ");
+                  }
+                  fprintf(stderr,"\n");
+                  */
+                 for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                 {
+                    
+                    
+                    if (k==EE_PARTBREITE)
+                    {
+                       fprintf(stderr,"\n");
+                    }
+                    else if (k && k%(EE_PARTBREITE/2)==0)
+                    {
+                       fprintf(stderr,"*\t");
+                    }
+                    
+                    
+                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                    
+                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                    //fprintf(stderr,"%d\t",wert);
+                 }
+                 
+                 usbtask = 0;
+              }break;
+
                  
               case 0xCB:
               {
@@ -1911,7 +2110,10 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    Math = [[rMath alloc]init];
    ChecksummenArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
    checksumme=0;
-
+   ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
+   [self loadExpoDatenArray];
+                     
    
    /*
     Daten fuer EXPO-Verlauf berechnen
@@ -1921,7 +2123,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
     
     */
    /*
-   ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
    
    
    for (int stufe=0;stufe<4;stufe++)
