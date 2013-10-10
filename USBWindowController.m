@@ -208,6 +208,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportRead_1_EEPROM:(id)sender
 {
+ //  [EE_taskmark setBackgroundColor:[NSColor redColor]];
+ //  [EE_taskmark setStringValue:@" "];
+
    // D4
    NSLog(@"\n***");
    NSLog(@"reportRead_1_EEPROM");
@@ -308,6 +311,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportWrite_1_Byte:(id)sender
 {
+   [EE_taskmark setBackgroundColor:[NSColor redColor]];
+   [EE_taskmark setStringValue:@" "];
+
    // C4
    NSLog(@"\n***");
    NSLog(@"reportWrite_1_Byte");
@@ -361,12 +367,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
    
 
-   uint8_t*      sendbuffer;
-   sendbuffer=malloc(USB_DATENBREITE);
+   uint8_t*      bytebuffer;
+   bytebuffer=malloc(USB_DATENBREITE);
    
-   sendbuffer[0] = 0xC4;
-   sendbuffer[1] = EE_Startadresse & 0x00FF;
-   sendbuffer[2] = (EE_Startadresse & 0xFF00)>>8;
+   bytebuffer[0] = 0xC4;
+   bytebuffer[1] = EE_Startadresse & 0x00FF;
+   bytebuffer[2] = (EE_Startadresse & 0xFF00)>>8;
 
    NSScanner* theScanner;
    unsigned	  value;
@@ -376,7 +382,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    if ([theScanner scanHexInt:&value])
    {
-      sendbuffer[3] = (char)value;
+      bytebuffer[3] = (char)value;
       //fprintf(stderr,"%d\t%d\n",tempWert, (char)value);
    }
    else
@@ -385,11 +391,23 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //free (sendbuffer);
       return;
    }
+   
+   for (int pos = 0;pos < EE_PARTBREITE;pos++)
+   {
+      //int wert = partbuffer[pos+1];
+      //wert <<= 8;
+      //wert += partbuffer[pos];
+      //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
+      fprintf(stderr,"%x\t",bytebuffer[pos]);
+      //bytechecksumme+= bytebuffer[pos];
+   }
+   fprintf(stderr,"\n");
 
-   int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
+
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    NSLog(@"reportWrite_1_EEPROM erfolg: %d",senderfolg);
-   
+   free(bytebuffer);
    /*
    
    [codeArray addObject:[NSString stringWithFormat:@"%d",data]]; // LO von Data
@@ -412,7 +430,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 
 - (IBAction)reportRead_1_EEPROM_Increment:(id)sender
-
 {
    // D4
    //NSLog(@"\n***");
@@ -1427,7 +1444,10 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
       }
      // NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
       [self setLastValueRead:dataRead];
-//      NSLog(@"usbtask: %d buffer0: %d",usbtask,buffer[0]);
+      if (!((buffer[0] & 0xF0)   || (buffer[0] ==0)))
+      {
+         NSLog(@"usbtask: %d buffer0: %02X",usbtask,buffer[0]& 0xFF);
+      }
 //      NSLog(@"code raw result: %d dataRead: %X",result,(UInt8)buffer[0] );
       switch (usbtask)
       {
@@ -1488,7 +1508,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   
                case 0xC5: // write EEPROM Byte
                {
-                  fprintf(stderr,"echo C5 write EEPROM Byte \n");
+                  fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen\n");
                   
                   /*
                   for (int i=0;i<12;i++)
@@ -1503,6 +1523,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   }
                   fprintf(stderr,"\n");
                   */
+                  if ((uint8)buffer[3] ==0)
+                  {
+                     [EE_taskmark setStringValue:@"OK"];
+                     [EE_taskmark setBackgroundColor:[NSColor greenColor]];
+
+                  }
+                  
                   for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                   {
                      
@@ -1554,6 +1581,46 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   
                }break;
 
+               case 0xCD: // write EEPROM Byte
+               {
+                  fprintf(stderr,"echo CD  write EEPROM Byte \n");
+                  
+                  /*
+                   for (int i=0;i<12;i++)
+                   {
+                   UInt8 wertL = (UInt8)buffer[2*i];
+                   UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                   int wert = wertL | (wertH<<8);
+                   //int wert = wertL + (wertH );
+                   //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                   fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                   //fprintf(stderr," | ");
+                   }
+                   fprintf(stderr,"\n");
+                   */
+                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                  {
+                     
+                     
+                     if (k==EE_PARTBREITE)
+                     {
+                        fprintf(stderr,"\n");
+                     }
+                     else if (k && k%(EE_PARTBREITE/2)==0)
+                     {
+                        fprintf(stderr,"*\t");
+                     }
+                     
+                     
+                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                     
+                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                     //fprintf(stderr,"%d\t",wert);
+                  }
+                  fprintf(stderr,"%\n");
+                  usbtask = 0;
+               }break;
+
                   
             }// switch code
             
@@ -1573,6 +1640,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                {
                   fprintf(stderr,"echo read EEPROM Byte ");
                   // buffer1 ist data
+                  
                   for (int i=0;i<8;i++)
                   {
                      UInt8 wertL = (UInt8)buffer[2*i];
@@ -1750,7 +1818,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
                     //fprintf(stderr,"%d\t",wert);
                  }
-                 
+                 fprintf(stderr,"\n");
                  usbtask = 0;
               }break;
 
@@ -1758,7 +1826,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
               case 0xCB:
               {
                  
-                 fprintf(stderr,"* echo default CB nach laden: ");
+                 fprintf(stderr,"* echo default CB antwort nach eeprombyteladen: ");
                  
                  for (int k=0;k<16;k++) // 32 16Bit-Werte
                  {
@@ -1800,6 +1868,46 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  fprintf(stderr,"\n\n");
                  usbtask = 0;
                  
+              }break;
+
+              case 0xCD: // write EEPROM Byte
+              {
+                 fprintf(stderr,"echo CD default write EEPROM Byte \n");
+                 
+                 /*
+                  for (int i=0;i<12;i++)
+                  {
+                  UInt8 wertL = (UInt8)buffer[2*i];
+                  UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                  int wert = wertL | (wertH<<8);
+                  //int wert = wertL + (wertH );
+                  //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                  fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                  //fprintf(stderr," | ");
+                  }
+                  fprintf(stderr,"\n");
+                  */
+                 for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                 {
+                    
+                    
+                    if (k==EE_PARTBREITE)
+                    {
+                       fprintf(stderr,"\n");
+                    }
+                    else if (k && k%(EE_PARTBREITE/2)==0)
+                    {
+                       fprintf(stderr,"*\t");
+                    }
+                    
+                    
+                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                    
+                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                    //fprintf(stderr,"%d\t",wert);
+                 }
+                 fprintf(stderr,"%\n");
+                 usbtask = 0;
               }break;
 
                  
