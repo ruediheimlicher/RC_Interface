@@ -27,9 +27,9 @@
 
 #define PAGESIZE              32
 
-#define EE_PAGESIZE           64
+#define USB_DATENBREITE           64
 
-#define EE_PARTSIZE           32
+#define EE_PARTBREITE           32
 
 
 #define EEPROM_WRITE_TASK     1
@@ -153,6 +153,8 @@
    
    IBOutlet id       Taskwahl;
    IBOutlet id       EE_StartadresseFeld;
+   IBOutlet id       EE_StartadresseFeldHexLO;
+   IBOutlet id       EE_StartadresseFeldHexHI;
    IBOutlet id       EE_startadresselo;
    IBOutlet id       EE_startadressehi;
    IBOutlet id       EE_DataFeld;
@@ -160,6 +162,8 @@
    IBOutlet id       EE_datahi;
    IBOutlet id       EE_datalohex;
    IBOutlet id       EE_datahihex;
+   
+   IBOutlet id       EE_taskmark;
 
 }
 
