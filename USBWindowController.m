@@ -1455,6 +1455,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          //NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
             
          case EEPROM_WRITE_TASK:
+            
          {
             UInt8 code = (UInt8)buffer[0];
             //NSLog(@"code raw result: %d dataRead: %X",result,code );
