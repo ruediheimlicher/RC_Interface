@@ -335,7 +335,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int wert=0;
    uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
 
-   data = 0x14;
+   //data = 0x14;
     
    [EE_DataFeld setIntValue: data];
    
@@ -407,6 +407,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    NSLog(@"reportWrite_1_EEPROM erfolg: %d",senderfolg);
+   [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
+   
    free(bytebuffer);
    /*
    
@@ -1053,7 +1055,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    int eepromchecksumme=0;
    int bytechecksumme=0;
-   int lastlo=0;
    {
      // int startposition = EEPROMpage * PAGESIZE;
       for (int pos = 0;pos < EE_PARTBREITE;pos++)
