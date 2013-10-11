@@ -1461,6 +1461,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             if (code)
             {
                
+               
             switch (code)
             {
                case 0xC1: // Write EE Abschnitt an Dataposition senden
