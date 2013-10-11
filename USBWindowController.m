@@ -1509,7 +1509,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   
                case 0xC5: // write EEPROM Byte
                {
-                  fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen\n");
+                  fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen Fehler: %d\n",(uint8)buffer[3]);
                   
                   /*
                   for (int i=0;i<12;i++)
@@ -1524,6 +1524,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   }
                   fprintf(stderr,"\n");
                   */
+                 // fprintf(stderr,"Fehler: %d \n",(uint8)buffer[3]);
                   if ((uint8)buffer[3] ==0)
                   {
                      [EE_taskmark setStringValue:@"OK"];
@@ -1639,27 +1640,21 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             {
                case 0xD5: // read EEPROM Byte
                {
-                  fprintf(stderr,"echo read EEPROM Byte ");
+                  fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
                   // buffer1 ist data
                   
                   for (int i=0;i<8;i++)
                   {
-                     UInt8 wertL = (UInt8)buffer[2*i];
-                     UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                     int wert = wertL | (wertH<<8);
-                     
-                     //int wert = wertL + (wertH );
-                     //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                     fprintf(stderr,"*%X\t",(buffer[i]& 0xFF));
+                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
                      //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
                   
                   
-                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[1]& 0xFF]];
-                  [EE_datalo setIntValue:(UInt8)buffer[1]& 0x00FF];
+                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
+                  [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
                   
-                  [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[1]& 0x00FF]];
+                  [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
                   
                    
                   usbtask = 0;
