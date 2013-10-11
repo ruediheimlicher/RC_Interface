@@ -1429,19 +1429,6 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
       if (result)
       {
          //fprintf(stderr,"USB Eingang:\t"); // Potentiometerstellungen
-         for (int i=0;i<8;i++)
-         {
- //           UInt8 wertL = (UInt8)buffer[2*i];
- //           UInt8 wertH = ((UInt8)buffer[2*i+1]);
- //           int wert = wertL | (wertH<<8);
-            //int wert = wertL + (wertH );
-            //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-           // fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-           // fprintf(stderr," | ");
-         }
-         //fprintf(stderr,"\n");
-
-         
       }
      // NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
       [self setLastValueRead:dataRead];
@@ -1455,124 +1442,460 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          //NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
             
          case EEPROM_WRITE_TASK:
+         case EEPROM_READ_TASK:
+         case EEPROM_AUSGABE_TASK:
+         
          {
             UInt8 code = (UInt8)buffer[0];
             //NSLog(@"code raw result: %d dataRead: %X",result,code );
             if (code)
             {
-               
-            switch (code)
-            {
-               case 0xC1: // Write EE Abschnitt an Dataposition senden
+               switch (code)
                {
-                  //NSLog(@"********  B1 result: %d dataRead: %X testadress: %X testdata: %X indata: %X Dataposition: %d",result,code,(UInt8)buffer[2],(UInt8)buffer[3],(UInt8)buffer[4] ,Dataposition);
-                  //fprintf(stderr,"echo C1:\t");
-                  for (int i=0;i<16;i++)
+                  case 0xC1: // Write EE Abschnitt an Dataposition senden
                   {
-                     //fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                  }
-                  //fprintf(stderr,"\n");
-
-                  if (Dataposition < [USB_DatenArray count])
-                  {
-                     fprintf(stderr,"*");
-                     
-                     fprintf(stderr," echo C1\n");
-                     for (int k=0;k<16;k+=2) // 32 16Bit-Werte
+                     //NSLog(@"********  B1 result: %d dataRead: %X testadress: %X testdata: %X indata: %X Dataposition: %d",result,code,(UInt8)buffer[2],(UInt8)buffer[3],(UInt8)buffer[4] ,Dataposition);
+                     //fprintf(stderr,"echo C1:\t");
+                     for (int i=0;i<16;i++)
                      {
-                        fprintf(stderr,"%02X\t%02X\t",(uint8)buffer[k],(uint8)buffer[k+1]);
-                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                        //fprintf(stderr,"%d\t",wert);
+                        //fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
                      }
-                  
-                  
-                  fprintf(stderr,"\n\n");
-
-                     [self write_Abschnitt];
-                  }
-                  else
+                     //fprintf(stderr,"\n");
+                     
+                     if (Dataposition < [USB_DatenArray count])
+                     {
+                        fprintf(stderr,"*");
+                        
+                        fprintf(stderr," echo C1\n");
+                        for (int k=0;k<16;k+=2) // 32 16Bit-Werte
+                        {
+                           fprintf(stderr,"%02X\t%02X\t",(uint8)buffer[k],(uint8)buffer[k+1]);
+                           //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                           //fprintf(stderr,"%d\t",wert);
+                        }
+                        
+                        
+                        fprintf(stderr,"\n\n");
+                        
+                        [self write_Abschnitt];
+                     }
+                     else
+                     {
+                        usbtask =0;
+                     }
+                  }break;
+                     
+                  case 0xC2: // letzter Abschnitt, Write EE beendet
                   {
-                      usbtask =0;
-                  }
-               }break;
-                  
-               case 0xC2: // letzter Abschnitt, Write EE beendet
-               {
-                  
+                     
                      fprintf(stderr," C2 end\n");
                      
                      //NSLog(@"++++  B2 ");
                      //[self startRead];
                      usbtask = 0;
-
-               }break;
-                  
-               case 0xC5: // write EEPROM Byte
-               {
-                  fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen Fehler: %d\n",(uint8)buffer[3]);
-                  
-                  /*
-                  for (int i=0;i<12;i++)
+                     
+                  }break;
+                     
+                  case 0xC5: // write EEPROM Byte
                   {
-                     UInt8 wertL = (UInt8)buffer[2*i];
-                     UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                     int wert = wertL | (wertH<<8);
-                     //int wert = wertL + (wertH );
-                     //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                     //fprintf(stderr," | ");
-                  }
-                  fprintf(stderr,"\n");
-                  */
-                 // fprintf(stderr,"Fehler: %d \n",(uint8)buffer[3]);
-                  if ((uint8)buffer[3] ==0)
+                     fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen Fehler: %d\n",(uint8)buffer[3]);
+                     
+                     /*
+                      for (int i=0;i<12;i++)
+                      {
+                      UInt8 wertL = (UInt8)buffer[2*i];
+                      UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                      int wert = wertL | (wertH<<8);
+                      //int wert = wertL + (wertH );
+                      //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      */
+                     // fprintf(stderr,"Fehler: %d \n",(uint8)buffer[3]);
+                     if ((uint8)buffer[3] ==0)
+                     {
+                        [EE_taskmark setStringValue:@"OK"];
+                        [EE_taskmark setBackgroundColor:[NSColor greenColor]];
+                        
+                     }
+                     
+                     for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     {
+                        
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     
+                     usbtask = 0;
+                  }break;
+                     
+                  case 0xCB:
                   {
+                     
+                     fprintf(stderr,"* echo CB in Ladefunktion: Fehler: %d\n",(uint8_t)buffer[3]);
                      [EE_taskmark setStringValue:@"OK"];
                      [EE_taskmark setBackgroundColor:[NSColor greenColor]];
-
-                  }
-                  
-                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     for (int k=0;k<USB_DATENBREITE;k++) //
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(uint8_t)buffer[k]);
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     
+                     
+                     fprintf(stderr,"\n\n");
+                     usbtask = 0;
+                     
+                  }break;
+                     
+                  case 0xCD: // write EEPROM Byte
+                  {
+                     fprintf(stderr,"echo CD  write EEPROM Byte \n");
+                     
+                     /*
+                      for (int i=0;i<12;i++)
+                      {
+                      UInt8 wertL = (UInt8)buffer[2*i];
+                      UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                      int wert = wertL | (wertH<<8);
+                      //int wert = wertL + (wertH );
+                      //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      */
+                     for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     {
+                        
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     fprintf(stderr,"\n");
+                     usbtask = 0;
+                  }break;
+                     
+                     // EEPROM_READ_TASK:
+                     
+                  case 0xD5: // read EEPROM Byte
+                  {
+                     fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+                     // buffer1 ist data
+                     
+                     for (int i=0;i<8;i++)
+                     {
+                        fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                     
+                     
+                     [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
+                     [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
+                     
+                     [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
+                     
+                     
+                     usbtask = 0;
+                  }break;
+                     
+                     // EEPROM_AUSGABE_TASK
+                  case 0xC7: // read EEPROM Byte
+                  {
+                     /*
+                      fprintf(stderr,"echo C7 EEPROM_AUSGABE: ");
+                      for (int i=0;i<8;i++)
+                      {
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      */
+                     // von Write Page
+                     if (Dataposition < [USB_DatenArray count])
+                     {
+                        buffer[63] = '\0';
+                        NSMutableData *data=[[NSMutableData alloc] init];
+                        [data appendBytes:buffer length:64];
+                        
+                        //NSString* Ausgabestring = [NSString stringWithUTF8String:buffer];
+                        // NSLog(@"Ausgabestring: %@",Ausgabestring);
+                        //[USB_DataFeld setStringValue:Ausgabestring];
+                        fprintf(stderr,"*");
+                        
+                        fprintf(stderr," echo C7: ");
+                        for (int k=0;k<16;k++) // 32 16Bit-Werte
+                        {
+                           
+                           fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                           //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                           //fprintf(stderr,"%d\t",wert);
+                        }
+                        
+                        
+                        fprintf(stderr,"\n\n");
+                        
+                        [self write_Abschnitt];
+                        
+                     }
+                     else
+                     {
+                        usbtask =0;
+                     }
+                     
+                     //
+                     
+                     [EE_DataFeld setStringValue:@"Ausgabe"];
+                  }break;
+                     
+                  case 0xC8:
                   {
                      
-
-                     if (k==EE_PARTBREITE)
+                     fprintf(stderr,"* echo C8 end: ");
+                     
+                     for (int k=0;k<16;k++) // 32 16Bit-Werte
                      {
-                        fprintf(stderr,"\n");
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
                      }
-                     else if (k && k%(EE_PARTBREITE/2)==0)
+                     
+                     
+                     fprintf(stderr,"\n\n");
+                     usbtask = 0;
+                     
+                  }break;
+                     
+                     // Default
+                     /* doppelt
+                      case 0xC8:
+                      {
+                      
+                      fprintf(stderr,"* echo C8 default end: ");
+                      
+                      for (int k=0;k<16;k++) // 32 16Bit-Werte
+                      {
+                      fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                      //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                      //fprintf(stderr,"%d\t",wert);
+                      }
+                      
+                      
+                      fprintf(stderr,"\n\n");
+                      
+                      usbtask = 0;
+                      
+                      }break;
+                      */
+                  case 0xA3:
+                  {
+                     fprintf(stderr,"echo A3: ");
+                     for (int i=0;i<8;i++)
                      {
-                        fprintf(stderr,"*\t");
+                        fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                     
+                  }break;
+                     
+                     /*
+                      case 0xC5: // write EEPROM Byte doppelt
+                      {
+                      fprintf(stderr,"\necho C5 default write EEPROM Byte \n");
+                      
+                      
+                      for (int i=0;i<12;i++)
+                      {
+                      UInt8 wertL = (UInt8)buffer[2*i];
+                      UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                      int wert = wertL | (wertH<<8);
+                      //int wert = wertL + (wertH );
+                      //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      
+                      for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                      {
+                      
+                      
+                      if (k==EE_PARTBREITE)
+                      {
+                      fprintf(stderr,"\n");
+                      }
+                      else if (k && k%(EE_PARTBREITE/2)==0)
+                      {
+                      fprintf(stderr,"*\t");
+                      }
+                      
+                      
+                      fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                      
+                      //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                      //fprintf(stderr,"%d\t",wert);
+                      }
+                      fprintf(stderr,"\n");
+                      usbtask = 0;
+                      }break;
+                      */
+                     
+                  case 0xCC:
+                  {
+                     
+                     fprintf(stderr,"* echo default CC nach laden: \n");
+                     
+                     for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
                      }
                      
                      
-                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                     fprintf(stderr,"\n\n");
+                     usbtask = 0;
                      
-                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                     //fprintf(stderr,"%d\t",wert);
-                  }
-
-                  usbtask = 0;
-               }break;
-                  
-               case 0xCB:
+                  }break;
+                     
+/*
+                  case 0xCC:
+                  {
+                     
+                     fprintf(stderr,"* echo default CC nach laden: \n");
+                     
+                     for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     
+                     
+                     fprintf(stderr,"\n\n");
+                     usbtask = 0;
+                     
+                  }break;
+*/
+                     
+                     /*
+                  case 0xCD: // write EEPROM Byte
+                  {
+                     fprintf(stderr,"echo CD default write EEPROM Byte \n");
+                     
+                     
+                      for (int i=0;i<12;i++)
+                      {
+                      UInt8 wertL = (UInt8)buffer[2*i];
+                      UInt8 wertH = ((UInt8)buffer[2*i+1]);
+                      int wert = wertL | (wertH<<8);
+                      //int wert = wertL + (wertH );
+                      //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      
+                     for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
+                     {
+                        
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     fprintf(stderr,"\n");
+                     usbtask = 0;
+                  }break;
+                     
+                 */
+                     
+                     
+ // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                     
+               }// switch code
+               
+               //
+               /*
+            case 0xCB:
                {
                   
-                  fprintf(stderr,"* echo CB in Ladefunktion: Fehler: %d\n",(uint8_t)buffer[3]);
-                  [EE_taskmark setStringValue:@"OK"];
-                  [EE_taskmark setBackgroundColor:[NSColor greenColor]];
-                  for (int k=0;k<USB_DATENBREITE;k++) // 
+                  fprintf(stderr,"* echo default CB antwort nach eeprombyteladen: ");
+                  
+                  for (int k=0;k<16;k++) // 32 16Bit-Werte
                   {
-                     if (k==EE_PARTBREITE)
-                     {
-                        fprintf(stderr,"\n");
-                     }
-                     else if (k && k%(EE_PARTBREITE/2)==0)
-                     {
-                        fprintf(stderr,"*\t");
-                     }
-                     
-                     fprintf(stderr,"%02X\t",(uint8_t)buffer[k]);
+                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
                      //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
                      //fprintf(stderr,"%d\t",wert);
                   }
@@ -1582,56 +1905,15 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   usbtask = 0;
                   
                }break;
-
-               case 0xCD: // write EEPROM Byte
-               {
-                  fprintf(stderr,"echo CD  write EEPROM Byte \n");
-                  
-                  /*
-                   for (int i=0;i<12;i++)
-                   {
-                   UInt8 wertL = (UInt8)buffer[2*i];
-                   UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                   int wert = wertL | (wertH<<8);
-                   //int wert = wertL + (wertH );
-                   //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                   fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                   //fprintf(stderr," | ");
-                   }
-                   fprintf(stderr,"\n");
-                   */
-                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
-                  {
-                     
-                     
-                     if (k==EE_PARTBREITE)
-                     {
-                        fprintf(stderr,"\n");
-                     }
-                     else if (k && k%(EE_PARTBREITE/2)==0)
-                     {
-                        fprintf(stderr,"*\t");
-                     }
-                     
-                     
-                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                     
-                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                     //fprintf(stderr,"%d\t",wert);
-                  }
-                  fprintf(stderr,"%\n");
-                  usbtask = 0;
-               }break;
-
-                  
-            }// switch code
-            
-            
+*/
+               //
+               
                
             } // if code EEPROM_WRITE_TASK
             
          }break;
          
+            /*
          case EEPROM_READ_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
@@ -1663,8 +1945,9 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             }// switch code
          //   
          }break;
-            
-            
+          */  
+         
+            /*
          case EEPROM_AUSGABE_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
@@ -1672,7 +1955,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             {
                case 0xC7: // read EEPROM Byte
                {
-                  /*
+                  
                   fprintf(stderr,"echo C7 EEPROM_AUSGABE: ");
                   for (int i=0;i<8;i++)
                   {
@@ -1680,7 +1963,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                      //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
-                  */
+                  
                   // von Write Page
                   if (Dataposition < [USB_DatenArray count])
                   {
@@ -1736,17 +2019,21 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
 
                }break;
  
-
+             // DEFAULT
+             
                   
             }//switch code
             
          }break;
-            
-         default:
-         {
-            UInt8 code = (UInt8)buffer[0];
-            switch (code)
-           {
+           */
+         
+         
+         //default:
+         //{
+         //   UInt8 code = (UInt8)buffer[0];
+          //  switch (code)
+           {//*
+                 /*
               case 0xC8:
               {
                  
@@ -1765,7 +2052,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  usbtask = 0;
                  
               }break;
-
+*/
+                 /*
                case 0xA3:
               {
                  fprintf(stderr,"echo A3: ");
@@ -1777,12 +2065,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  fprintf(stderr,"\n");
 
               }break;
-                 
+                 */
+                 /*
               case 0xC5: // write EEPROM Byte
               {
                  fprintf(stderr,"\necho C5 default write EEPROM Byte \n");
                  
-                 /*
+                 
                   for (int i=0;i<12;i++)
                   {
                   UInt8 wertL = (UInt8)buffer[2*i];
@@ -1794,7 +2083,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
-                  */
+                  
                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                  {
                     
@@ -1817,8 +2106,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  fprintf(stderr,"\n");
                  usbtask = 0;
               }break;
-
-                 
+*/
+               /*
               case 0xCB:
               {
                  
@@ -1836,7 +2125,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  usbtask = 0;
                  
               }break;
-
+*/
+                 /*
               case 0xCC:
               {
                  
@@ -1865,12 +2155,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  usbtask = 0;
                  
               }break;
-
+*/
+                 /*
               case 0xCD: // write EEPROM Byte
               {
                  fprintf(stderr,"echo CD default write EEPROM Byte \n");
                  
-                 /*
+                 
                   for (int i=0;i<12;i++)
                   {
                   UInt8 wertL = (UInt8)buffer[2*i];
@@ -1882,7 +2173,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
-                  */
+                  
                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                  {
                     
@@ -1902,15 +2193,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
                     //fprintf(stderr,"%d\t",wert);
                  }
-                 fprintf(stderr,"%\n");
+                 fprintf(stderr,"\n");
                  usbtask = 0;
               }break;
-
+*/
                  
-               default:
-                 
-                  break;
-            } // switch code
+              
+       //     } //* switch code
             
             int i=0;
             if (buffer[0])
