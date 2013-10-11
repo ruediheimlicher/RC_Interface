@@ -1455,7 +1455,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          //NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
             
          case EEPROM_WRITE_TASK:
-            
+            case EEPROM_READ_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
             //NSLog(@"code raw result: %d dataRead: %X",result,code );
@@ -1625,6 +1625,28 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   usbtask = 0;
                }break;
 
+               case 0xD5: // read EEPROM Byte
+               {
+                  fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+                  // buffer1 ist data
+                  
+                  for (int i=0;i<8;i++)
+                  {
+                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                     //fprintf(stderr," | ");
+                  }
+                  fprintf(stderr,"\n");
+                  
+                  
+                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
+                  [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
+                  
+                  [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
+                  
+                  
+                  usbtask = 0;
+               }break;
+
                   
             }// switch code
             
@@ -1633,7 +1655,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             } // if code EEPROM_WRITE_TASK
             
          }break;
-         
+         /*
          case EEPROM_READ_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
@@ -1665,7 +1687,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             }// switch code
          //   
          }break;
-            
+            */
             
          case EEPROM_AUSGABE_TASK:
          {
