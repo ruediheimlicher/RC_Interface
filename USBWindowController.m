@@ -206,14 +206,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [self USB_Aktion:NULL]; // Antwort lesen
 }
 
-- (IBAction)reportRead_1_EEPROM:(id)sender
+- (IBAction)reportRead_1_Byte:(id)sender
 {
  //  [EE_taskmark setBackgroundColor:[NSColor redColor]];
  //  [EE_taskmark setStringValue:@" "];
 
    // D4
    NSLog(@"\n***");
-   NSLog(@"reportRead_1_EEPROM");
+   NSLog(@"reportRead_1_Byte");
    Dataposition = 0;
    usbtask = EEPROM_READ_TASK;
    [USB_DatenArray removeAllObjects];
@@ -431,11 +431,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 
-- (IBAction)reportRead_1_EEPROM_Increment:(id)sender
+- (IBAction)reportRead_1_Byte_Increment:(id)sender
 {
    // D4
    //NSLog(@"\n***");
-   NSLog(@"reportRead_1_EEPROM");
+   NSLog(@"reportRead_1_Byte");
    Dataposition = 0;
    usbtask = EEPROM_READ_TASK;
    [USB_DatenArray removeAllObjects];
@@ -919,7 +919,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
-- (IBAction)reportWritePart:(id)sender
+- (IBAction)reportReadRead_Part:(id)sender
+{
+   [EE_taskmark setBackgroundColor:[NSColor redColor]];
+   [EE_taskmark setStringValue:@" "];
+
+   
+}
+
+- (IBAction)reportWrite_Part:(id)sender
 {
    usbtask = EEPROM_WRITE_TASK;
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
@@ -1509,9 +1517,9 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
 
                }break;
                   
-               case 0xC5: // write EEPROM Byte
+               case 0xE5: // write EEPROM Byte
                {
-                  fprintf(stderr,"echo C5 write EEPROM Byte in eeprombyteladen Fehler: %d\n",(uint8)buffer[3]);
+                  fprintf(stderr,"echo E5 write EEPROM Byte in eeprombyteschreiben. Fehler: %d\n",(uint8)buffer[3]);
                   
                   /*
                   for (int i=0;i<12;i++)
@@ -1655,46 +1663,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             } // if code EEPROM_WRITE_TASK
             
          }break;
-         /*
-         case EEPROM_READ_TASK:
-         {
-            UInt8 code = (UInt8)buffer[0];
-            
-            switch (code)
-            {
-               case 0xD5: // read EEPROM Byte
-               {
-                  fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
-                  // buffer1 ist data
-                  
-                  for (int i=0;i<8;i++)
-                  {
-                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                     //fprintf(stderr," | ");
-                  }
-                  fprintf(stderr,"\n");
-                  
-                  
-                  [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
-                  [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
-                  
-                  [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
-                  
-                   
-                  usbtask = 0;
-               }break;
-            
-            }// switch code
-         //   
-         }break;
-            */
             
          case EEPROM_AUSGABE_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
             switch (code)
             {
-               case 0xC7: // read EEPROM Byte
+               case 0xC7: // EEPROM_AUSGABE
                {
                   /*
                   fprintf(stderr,"echo C7 EEPROM_AUSGABE: ");
