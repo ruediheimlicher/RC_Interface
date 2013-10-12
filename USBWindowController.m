@@ -255,7 +255,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [USB_DatenArray removeAllObjects];
       // Request einrichten
       NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-      [codeArray addObject:[NSString stringWithFormat:@"%d",0xD4]];
+      [codeArray addObject:[NSString stringWithFormat:@"%d",0xDA]];
       int EE_Startadresse = i;
       uint8 lo = EE_Startadresse & 0x00FF;
       uint8 hi = (EE_Startadresse & 0xFF00)>>8;
@@ -441,7 +441,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [USB_DatenArray removeAllObjects];
    // Request einrichten
    NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xD4]];
+   [codeArray addObject:[NSString stringWithFormat:@"%d",0xD6]];
    int EE_Startadresse = [EE_StartadresseFeld intValue];
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
