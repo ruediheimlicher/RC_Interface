@@ -933,63 +933,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
    [EE_taskmark setStringValue:@" "];
    
-   /*
+   
    // ******************************************************************************************
-   // Daten berechnen
+   // Daten berechnen in awake
    // ******************************************************************************************
-   
-   ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-   int DIV = 32;
-   
-   for (int stufe=0;stufe<4;stufe++)
-   {
-      
-      NSArray* dataArray = [Math expoArrayMitStufe:stufe];
-      [ExpoDatenArray addObject:dataArray];
-      
-	}
-   
-   for (int stufe=0;stufe<4;stufe++)
-   {
-      //fprintf(stderr,"%d",stufe);
-      int wert=0;
-      checksumme=0;
-      for (int pos=0;pos<VEKTORSIZE;pos++)
-      {
-         if (pos%DIV == 0)
-         {
-            wert=0;
-            uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
-            uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
-            wert = hi;
-            wert <<= 8;
-            wert += lo;
-            
-            checksumme += wert;
-            //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
-      //      fprintf(stderr,"\t%d",wert);
-            //fprintf(stderr,"\t%d\t%d",lo,hi);
-         }
-      }
-      
-      
-      wert=0;
-      uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]lastObject]intValue];
-      uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]lastObject]intValue];
-      wert = hi;
-      wert <<= 8;
-      wert += lo;
-      //         fprintf(stderr,"\t%d",wert);
-      //fprintf(stderr,"\t%d\t%d | ",lo,hi);
-    //  fprintf(stderr,"\n");
-    //  fprintf(stderr,"checksumme: \t%d\n",checksumme);
-      
-      
-      [ChecksummenArray addObject:[NSNumber numberWithInt:checksumme]];
-      
-   }
-  // NSLog(@"ChecksummenArray count: %u : %@",(int)[ChecksummenArray count],[ChecksummenArray description]);
-   */
+
    // ******************************************************************************************
    // Erster Abschnitt enthŠlt code
    // ******************************************************************************************
@@ -1717,23 +1665,6 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   [EE_DataFeld setStringValue:@"Ausgabe"];
                }break;
                   
-               case 0xC8:
-               {
-                  
-                  fprintf(stderr,"* echo C8 end: ");
-                  
-                  for (int k=0;k<16;k++) // 32 16Bit-Werte
-                  {
-                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                     //fprintf(stderr,"%d\t",wert);
-                  }
-                  
-                  
-                  fprintf(stderr,"\n\n");
-                  usbtask = 0;
-
-               }break;
  
 
                   
@@ -1746,24 +1677,6 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             UInt8 code = (UInt8)buffer[0];
             switch (code)
            {
-              case 0xC8:
-              {
-                 
-                 fprintf(stderr,"* echo C8 default end: ");
-                 
-                 for (int k=0;k<16;k++) // 32 16Bit-Werte
-                 {
-                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                    //fprintf(stderr,"%d\t",wert);
-                 }
-                 
-                 
-                 fprintf(stderr,"\n\n");
-                 
-                 usbtask = 0;
-                 
-              }break;
 
                case 0xA3:
               {
