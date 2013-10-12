@@ -1688,23 +1688,6 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
               }break;
 
                  
-              case 0xCB:
-              {
-                 
-                 fprintf(stderr,"* echo default CB antwort nach eeprombyteladen: ");
-                 
-                 for (int k=0;k<16;k++) // 32 16Bit-Werte
-                 {
-                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                    //fprintf(stderr,"%d\t",wert);
-                 }
-                 
-                 
-                 fprintf(stderr,"\n\n");
-                 usbtask = 0;
-                 
-              }break;
 
               case 0xCC:
               {
