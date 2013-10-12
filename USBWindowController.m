@@ -1327,7 +1327,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          //NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
             
          case EEPROM_WRITE_TASK:
-            case EEPROM_READ_TASK:
+         case EEPROM_READ_TASK:
+         case EEPROM_AUSGABE_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
             //NSLog(@"code raw result: %d dataRead: %X",result,code );
@@ -1480,6 +1481,55 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   usbtask = 0;
                }break;
 
+                  // Ausgabe_TASK
+               case 0xC7: // EEPROM_AUSGABE
+               {
+                  /*
+                   fprintf(stderr,"echo C7 EEPROM_AUSGABE: ");
+                   for (int i=0;i<8;i++)
+                   {
+                   fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                   //fprintf(stderr," | ");
+                   }
+                   fprintf(stderr,"\n");
+                   */
+                  // von Write Page
+                  if (Dataposition < [USB_DatenArray count])
+                  {
+                     buffer[63] = '\0';
+                     NSMutableData *data=[[NSMutableData alloc] init];
+                     [data appendBytes:buffer length:64];
+                     
+                     //NSString* Ausgabestring = [NSString stringWithUTF8String:buffer];
+                     // NSLog(@"Ausgabestring: %@",Ausgabestring);
+                     //[USB_DataFeld setStringValue:Ausgabestring];
+                     fprintf(stderr,"*");
+                     
+                     fprintf(stderr," echo C7: ");
+                     for (int k=0;k<16;k++) // 32 16Bit-Werte
+                     {
+                        
+                        fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+                        //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+                        //fprintf(stderr,"%d\t",wert);
+                     }
+                     
+                     
+                     fprintf(stderr,"\n\n");
+                     
+                     [self write_Abschnitt];
+                     
+                  }
+                  else
+                  {
+                     usbtask =0;
+                  }
+                  
+                  //
+                  
+                  [EE_DataFeld setStringValue:@"Ausgabe"];
+               }break;
+
                   
             }// switch code
             
@@ -1488,7 +1538,9 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             } // if code EEPROM_WRITE_TASK
             
          }break;
-            
+   // ---------------------------------------------------- case TASKS Sammlung
+        
+            /*
          case EEPROM_AUSGABE_TASK:
          {
             UInt8 code = (UInt8)buffer[0];
@@ -1496,7 +1548,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             {
                case 0xC7: // EEPROM_AUSGABE
                {
-                  /*
+                  
                   fprintf(stderr,"echo C7 EEPROM_AUSGABE: ");
                   for (int i=0;i<8;i++)
                   {
@@ -1504,7 +1556,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                      //fprintf(stderr," | ");
                   }
                   fprintf(stderr,"\n");
-                  */
+                 
                   // von Write Page
                   if (Dataposition < [USB_DatenArray count])
                   {
@@ -1548,7 +1600,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             }//switch code
             
          }break;
-            
+          */  
          default:
          {
             UInt8 code = (UInt8)buffer[0];
