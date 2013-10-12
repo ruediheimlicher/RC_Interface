@@ -744,7 +744,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportHalt:(id)sender
 {
-   NSLog(@"reportHalt state: %",[sender state]);
+   NSLog(@"reportHalt state: %d",[sender state]);
 
    int code = ![sender state];
    [self sendTask:0xF6+code];
@@ -1332,9 +1332,9 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
       {
          //NSLog(@"result: %d dataRead: %@",result,[dataRead description]);
             
-         case EEPROM_WRITE_TASK:
-         case EEPROM_READ_TASK:
-         case EEPROM_AUSGABE_TASK:
+         //case EEPROM_WRITE_TASK:
+         //case EEPROM_READ_TASK:
+         //case EEPROM_AUSGABE_TASK:
          default:
          {
             UInt8 code = (UInt8)buffer[0];
