@@ -945,8 +945,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [USB_DatenArray removeAllObjects];
    
    // Stufe 0
-   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xCA]];
    uint8 lo=0;
    uint8 hi=0;
    int EE_Startadresse=0;
@@ -989,9 +987,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
    
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
-
+ 
    [self send_EEPROMPartMitStufe:3 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
 
 }
@@ -1541,46 +1537,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   
                }break;
 
-               case 0xCD: // write EEPROM Byte
-               {
-                  fprintf(stderr,"echo CD  write EEPROM Byte \n");
-                  
-                  /*
-                   for (int i=0;i<12;i++)
-                   {
-                   UInt8 wertL = (UInt8)buffer[2*i];
-                   UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                   int wert = wertL | (wertH<<8);
-                   //int wert = wertL + (wertH );
-                   //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                   fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                   //fprintf(stderr," | ");
-                   }
-                   fprintf(stderr,"\n");
-                   */
-                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
-                  {
-                     
-                     
-                     if (k==EE_PARTBREITE)
-                     {
-                        fprintf(stderr,"\n");
-                     }
-                     else if (k && k%(EE_PARTBREITE/2)==0)
-                     {
-                        fprintf(stderr,"*\t");
-                     }
-                     
-                     
-                     fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                     
-                     //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                     //fprintf(stderr,"%d\t",wert);
-                  }
-                  fprintf(stderr,"%\n");
-                  usbtask = 0;
-               }break;
-
+  
                case 0xD5: // read EEPROM Byte
                {
                   fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
@@ -1778,46 +1735,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                  
               }break;
 
-              case 0xCD: // write EEPROM Byte
-              {
-                 fprintf(stderr,"echo CD default write EEPROM Byte \n");
-                 
-                 /*
-                  for (int i=0;i<12;i++)
-                  {
-                  UInt8 wertL = (UInt8)buffer[2*i];
-                  UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                  int wert = wertL | (wertH<<8);
-                  //int wert = wertL + (wertH );
-                  //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                  fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                  //fprintf(stderr," | ");
-                  }
-                  fprintf(stderr,"\n");
-                  */
-                 for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
-                 {
-                    
-                    
-                    if (k==EE_PARTBREITE)
-                    {
-                       fprintf(stderr,"\n");
-                    }
-                    else if (k && k%(EE_PARTBREITE/2)==0)
-                    {
-                       fprintf(stderr,"*\t");
-                    }
-                    
-                    
-                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                    
-                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                    //fprintf(stderr,"%d\t",wert);
-                 }
-                 fprintf(stderr,"%\n");
-                 usbtask = 0;
-              }break;
-
+ 
                  
                default:
                  
