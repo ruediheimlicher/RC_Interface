@@ -824,7 +824,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportHalt:(id)sender
 {
-   //NSLog(@"reportHalt state: %d",[sender state]);
+   NSLog(@"reportHalt state: %",[sender state]);
 
    int code = ![sender state];
    [self sendTask:0xF6+code];
