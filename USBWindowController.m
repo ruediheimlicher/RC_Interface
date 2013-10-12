@@ -277,38 +277,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 
-- (IBAction)reportWrite_1_EEPROM:(id)sender
-{
-   // D4
-   NSLog(@"\n***");
-   NSLog(@"reportWrite_1_EEPROM");
-   Dataposition = 0;
-   usbtask = EEPROM_READ_TASK;
-   [USB_DatenArray removeAllObjects];
-   // Request einrichten
-   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xC4]];
-   int EE_Startadresse = [EE_StartadresseFeld intValue];
-   uint8 lo = EE_Startadresse & 0x00FF;
-   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
-   
-   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
-   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
-   
-   
-   
-   fprintf(stderr,"Adresse: \t%d\t%d \thex \t%2X\t%2X\n",lo,hi, lo, hi);
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
-   
-   [USB_DatenArray addObject:codeArray];
-   [self write_EEPROM];
-   //[self USB_Aktion:NULL]; // Antwort lesen
-   [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
-   
-   
-}
-
 - (IBAction)reportWrite_1_Byte:(id)sender
 {
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
@@ -318,21 +286,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSLog(@"\n***");
    NSLog(@"reportWrite_1_Byte");
    usbtask = EEPROM_WRITE_TASK;
-   //Daten berechnen
-   Dataposition = 0;
-   [USB_DatenArray removeAllObjects];
-   // Erster Abschnitt enthŠlt code
    
-   // Stufe 0
-   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xC4]];
    
     int EE_Startadresse = [EE_StartadresseFeld intValue];
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
    
-   
-   int wert=0;
    uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
 
    //data = 0x14;
@@ -340,32 +299,18 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [EE_DataFeld setIntValue: data];
    
     fprintf(stderr,"\n");
-   //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
    fprintf(stderr,"data:\t%d\n",data);
-   //fprintf(stderr,"\t%d\t%d",lo,hi);
-
-
+ 
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
-   
-   fprintf(stderr,"Adresse lo:\t%d\thi: \t%d\n",lo,hi);
-   
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
    
    int EE_Data = [EE_DataFeld intValue];
    
    NSLog(@"reportWrite_1_Byte Data: %X ",EE_Data);
-   lo = EE_Data & 0x00FF;
    
-   hi = (EE_Data & 0xFF00)>>8;
-   
+    
    //[EE_datahi setStringValue:[NSString stringWithFormat:@"%X",datahi]];
    [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",data]];
-
-
-   fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
-   
 
    uint8_t*      bytebuffer;
    bytebuffer=malloc(USB_DATENBREITE);
@@ -377,7 +322,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSScanner* theScanner;
    unsigned	  value;
    NSString*  tempHexString=[NSString stringWithFormat:@"%02X",(uint8_t)data];
-   //NSLog(@"i: %d tempWert: %d tempWert hex: %02X tempHexString: %@",i,partbuffer[i],partbuffer[i],tempHexString);
    theScanner = [NSScanner scannerWithString:tempHexString];
    
    if ([theScanner scanHexInt:&value])
@@ -394,40 +338,16 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
    {
-      //int wert = partbuffer[pos+1];
-      //wert <<= 8;
-      //wert += partbuffer[pos];
-      //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
       fprintf(stderr,"%x\t",bytebuffer[pos]);
-      //bytechecksumme+= bytebuffer[pos];
    }
    fprintf(stderr,"\n");
 
-
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
-   NSLog(@"reportWrite_1_EEPROM erfolg: %d",senderfolg);
+   NSLog(@"reportWrite_1_Byte erfolg: %d",senderfolg);
    [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
    
    free(bytebuffer);
-   /*
-   
-   [codeArray addObject:[NSString stringWithFormat:@"%d",data]]; // LO von Data
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0]]; // HI von Data
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0x13]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0x14]]; // HI von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0x15]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xab]]; // HI von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Data
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Data
-
-
-   [USB_DatenArray addObject:codeArray];
-   
-   [EE_StartadresseFeld setIntValue: EE_Startadresse+1];
-   [self write_EEPROM];
-//   [self USB_Aktion:NULL]; // Antwort lesen
-   */
 }
 
 
@@ -1689,10 +1609,10 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
 
                  
 
-              case 0xCC:
+              case 0xEC:
               {
                  
-                 fprintf(stderr,"* echo default CC nach laden: \n");
+                 fprintf(stderr,"* echo default EC nach laden: \n");
                  
                  for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                  {

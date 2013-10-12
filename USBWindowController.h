@@ -181,7 +181,7 @@
 - (IBAction)reportWriteUSB:(id)sender;
 - (void)loadExpoDatenArray;
 - (IBAction)reportWriteEEPROM:(id)sender;
-- (IBAction)reportWrite_1_EEPROM:(id)sender;
+
 - (IBAction)reportWrite_1_Byte:(id)sender;
 
 - (IBAction)reportWrite_1_Line:(id)sender;
