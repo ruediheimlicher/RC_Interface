@@ -52,11 +52,11 @@
       wertarray[i]=(exparr[i]-exparr[0])*FAKTOR + STARTWERT;
       if ((i % 64 ==0)|| (i==VEKTORSIZE-1))
       {
- //        fprintf(stderr,"%2d\t%2.2f\n",i,wert);
+        // fprintf(stderr,"%2d\t%2.2f\n",i,wert);
       }
    }
    wertarray[VEKTORSIZE]=ENDWERT + STARTWERT;
-  // fprintf(stderr,"\n");
+  fprintf(stderr,"\n");
    maxwert=wertarray[VEKTORSIZE-1];
    //fprintf(stderr,"maxwert: %2.2f\n",maxwert);
    for (int i=0;i<VEKTORSIZE;i++)
@@ -67,7 +67,7 @@
       if ((i % 128 ==0)|| (i==VEKTORSIZE-1))
       {
    //      fprintf(stderr,"%2d\t%2.2f\n",i,wert);
-   //      fprintf(stderr,"%d\t",intwert);
+         fprintf(stderr,"%d\t",intwert);
       }
       
       

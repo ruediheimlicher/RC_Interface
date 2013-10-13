@@ -2044,7 +2044,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    {
       NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
       
-      fprintf(stderr,"%d",stufe);
+      fprintf(stderr,"stufe: %d\n",stufe);
       int wert=0;
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
       {
@@ -2068,14 +2068,15 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
 
  
    {
+     
       int wert=0;
-      //for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
-      for (int pos=0;pos<VEKTORSIZE/4-1;pos++)
+      for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
+      //for (int pos=0;pos<100-1;pos++)
       {
          
          if (pos%2 == 0)
          {
-            //if (pos%64==0)
+            if (pos%64==0)
             {
                fprintf(stderr,"%d\t",pos/2);
                
