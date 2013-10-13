@@ -641,9 +641,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       NSArray* dataArray = [Math expoArrayMitStufe:stufe];
       [ExpoDatenArray addObject:dataArray];
-      
-      
+       
 	}
+   
+   
+   
+   
 
    for (int stufe=0;stufe<4;stufe++)
    {
@@ -675,6 +678,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //fprintf(stderr,"\n");
       
    }
+   
+   
+   //NSMutableArray* neuerDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
 
    Dataposition = 0;
    [USB_DatenArray removeAllObjects];
@@ -2028,47 +2035,75 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    ExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
    [self loadExpoDatenArray];
-                     
+   int anzstufen=4;
    
-   /*
-    Daten fuer EXPO-Verlauf berechnen
-    expoArrayMitStufe ergibt 2 Array mit lo, hi von uint8 zu den Werten von Stufe
-    Uebertragen in EEPROM:
-      
-    
-    */
-   /*
-   
-   
-   
-   for (int stufe=0;stufe<4;stufe++)
-   {
-      
-      NSArray* dataArray = [Math expoArrayMitStufe:stufe];
-      [ExpoDatenArray addObject:dataArray];
-      
-      
-	}
-   
-    for (int stufe=0;stufe<4;stufe++)
-    {
-       fprintf(stderr,"%d\t",stufe);
-       for (int pos=0;pos<VEKTORSIZE;pos++)
-       {
-         int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:pos]intValue];
-         int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:pos]intValue];
-          int wert = hi;
-          wert <<= 8;
-          wert += lo;
-          //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
-          fprintf(stderr,"\t%d",wert);
-       }
-       fprintf(stderr,"\n");
+   NSMutableArray* newExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
 
-    }
-   */
-   //[self send_EEPROMpage:0];
    
+   for (int stufe=0;stufe<anzstufen;stufe++)
+   {
+      NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
+      
+      fprintf(stderr,"%d",stufe);
+      int wert=0;
+      for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
+      {
+         if (pos%2 == 0)
+         {
+            wert=0;
+            uint8 lo = [[neuerDatenArray objectAtIndex:pos]intValue];
+            uint8 hi = [[neuerDatenArray objectAtIndex:pos+1]intValue];
+            wert = hi;
+            wert <<= 8;
+            wert += lo;
+          
+            
+            //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
+            //fprintf(stderr,"%d\t%d\n",pos/2,wert);
+            //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+         }
+      }
+      [newExpoDatenArray addObject:neuerDatenArray];
+   }
+
+ 
+   {
+      int wert=0;
+      //for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
+      for (int pos=0;pos<VEKTORSIZE/4-1;pos++)
+      {
+         
+         if (pos%2 == 0)
+         {
+            //if (pos%64==0)
+            {
+               fprintf(stderr,"%d\t",pos/2);
+               
+               for (int stufe=0;stufe<anzstufen;stufe++)
+               {
+                  wert=0;
+                  uint8 lo = [[[newExpoDatenArray objectAtIndex:stufe] objectAtIndex:pos]intValue];
+                  uint8 hi = [[[newExpoDatenArray objectAtIndex:stufe] objectAtIndex:pos+1]intValue];
+                  wert = hi;
+                  wert <<= 8;
+                  wert += lo;
+                  
+                  
+                  //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
+                  {
+                     fprintf(stderr,"%d\t",wert);
+                  }
+                  //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+               }
+            fprintf(stderr,"\n");
+            }
+         
+         }
+      }
+   }
+
+   
+
    
    
 	NSImage* myImage = [NSImage imageNamed: @"USB"];

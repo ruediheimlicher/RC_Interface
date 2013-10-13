@@ -2,10 +2,13 @@
 
 #import <Cocoa/Cocoa.h>
 
-#define VEKTORSIZE 0x200
-#define STARTWERT   0x400
-#define ENDWERT     0x800
+#define VEKTORSIZE 0x400  // Anzahl Werte: 1024
+#define STARTWERT   0x800  // Startwert: 2048
+#define ENDWERT     0x1000 // Endwert: 4096
 #define SCHRITTWEITE 0x20
+#define DELTA  1.0/32 // Auffächerung. je kleiner desto enger
+
+#define FAKTOR 0x400
 
 @interface rMath : NSObject
 {
@@ -16,6 +19,7 @@
 Array mit DataArrays von je 2 Vektoren von 32 byte laenge mit 16-bit-Wert
 */
 - (NSArray*)expoArrayMitStufe:(int) stufe;
+- (NSArray*)expoDatenArrayMitStufe:(int)stufe;
 
 
 @end
