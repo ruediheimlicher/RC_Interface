@@ -12,6 +12,9 @@
 //#import "rUtils.h"
 
 #import "rVertikalanzeige.h"
+#import "rDataDiagramm.h"
+#import "rOrdinate.h"
+#import "rDiagrammGitterlinien.h"
 
 #import "rMath.h"
 
@@ -164,6 +167,13 @@
    IBOutlet id       EE_datahihex;
    
    IBOutlet id       EE_taskmark;
+   
+   IBOutlet id       DatadiagrammFeld;
+   
+   IBOutlet rDataDiagramm*   Datadiagramm;
+   rOrdinate*					DataOrdinate;
+   rDiagrammGitterlinien*	Gitterlinien;
+
 
 }
 

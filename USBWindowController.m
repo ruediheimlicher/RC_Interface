@@ -144,7 +144,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)startRead
 {
-   NSLog(@"startRead");
+   //NSLog(@"startRead");
    Dataposition = 0;
    // home ist 1 wenn homebutton gedrŸckt ist
    NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:0],@"home", nil];
@@ -846,10 +846,69 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
-- (IBAction)reportReadRead_Part:(id)sender
+- (IBAction)reportRead_Part:(id)sender
 {
-   [EE_taskmark setBackgroundColor:[NSColor redColor]];
-   [EE_taskmark setStringValue:@" "];
+  // [EE_taskmark setBackgroundColor:[NSColor redColor]];
+  // [EE_taskmark setStringValue:@" "];
+   uint8 lo=0;
+   uint8 hi=0;
+   int EE_Startadresse=0;
+   // Startadresse aus Eingabefeld
+   
+   NSLog(@"LO: %@ HI: %@",[EE_StartadresseFeldHexLO stringValue],[EE_StartadresseFeldHexHI stringValue]);
+   if ([[EE_StartadresseFeldHexLO stringValue]length]) // Eingabe da
+   {
+      NSScanner* theScanner;
+      unsigned	  value;
+      
+      NSString* loString = [EE_StartadresseFeldHexLO stringValue];
+      theScanner = [NSScanner scannerWithString:loString];
+      
+      if ([theScanner scanHexInt:&value])
+      {
+         lo = value;
+         
+      }
+      NSLog(@"LO: string: %@ loString value: %d",loString, value);
+      NSString* hiString = [EE_StartadresseFeldHexHI stringValue];
+      theScanner = [NSScanner scannerWithString:hiString];
+      
+      if ([theScanner scanHexInt:&value])
+      {
+         hi = value;
+         
+      }
+      
+   }
+   else
+   {
+      EE_Startadresse = [EE_StartadresseFeld intValue];
+      lo = EE_Startadresse & 0x00FF;
+      hi = (EE_Startadresse & 0xFF00)>>8;
+   }
+   
+   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
+   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
+   
+   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   uint8_t*      sendbuffer =malloc(USB_DATENBREITE);
+
+   sendbuffer[0] = 0xDA;
+   sendbuffer[1] = lo;
+   sendbuffer[2] = (hi & 0xFF00)>>8;
+   fprintf(stderr,"\n");
+   
+   fprintf(stderr,"send3: %d send4: %d\n",sendbuffer[1],sendbuffer[2]);
+   fprintf(stderr,"send3: %02X send4: %02X\n",sendbuffer[1],sendbuffer[2]);
+   
+   
+   
+   int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
+   
+   NSLog(@"read_part erfolg: %d",senderfolg);
+   [EE_StartadresseFeld setIntValue: EE_Startadresse + EE_PARTBREITE];
+   
+   free(sendbuffer);
 
    
 }
@@ -917,6 +976,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
  
    [self send_EEPROMPartMitStufe:3 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
 
+   [EE_StartadresseFeld setIntValue: EE_Startadresse + EE_PARTBREITE];
 }
 
 - (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse
@@ -1494,7 +1554,39 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                      
                      usbtask = 0;
                   }break;
+ 
+                  case 0xDB: // read EEPROM Part
+                  {
+                     fprintf(stderr,"echo read EEPROM Part data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+                     // buffer3 ist data
                      
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                      
+                     [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
+                     [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
+                     
+                     [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
+                     
+                     
+                     usbtask = 0;
+                  }break;
+
                      // Ausgabe_TASK
                   case 0xC7: // EEPROM_AUSGABE
                   {
@@ -2038,13 +2130,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    int anzstufen=4;
    
    NSMutableArray* newExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-
+   NSMutableArray* DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
    for (int stufe=0;stufe<anzstufen;stufe++)
    {
       NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
       
-      fprintf(stderr,"stufe: %d\n",stufe);
+  //    fprintf(stderr,"stufe: %d\n",stufe);
       int wert=0;
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
       {
@@ -2056,7 +2148,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             wert = hi;
             wert <<= 8;
             wert += lo;
-          
+            
             
             //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
             //fprintf(stderr,"%d\t%d\n",pos/2,wert);
@@ -2065,6 +2157,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
       }
       [newExpoDatenArray addObject:neuerDatenArray];
    }
+   
 
  
    {
@@ -2076,10 +2169,11 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          
          if (pos%2 == 0)
          {
-            if (pos%64==0)
+            //if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))
             {
                fprintf(stderr,"%d\t",pos/2);
-               
+               NSMutableArray* tempDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+               [tempDatenArray addObject:[NSNumber numberWithFloat:(float)pos]];
                for (int stufe=0;stufe<anzstufen;stufe++)
                {
                   wert=0;
@@ -2088,15 +2182,23 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   wert = hi;
                   wert <<= 8;
                   wert += lo;
+                  [tempDatenArray addObject:[NSNumber numberWithFloat:(float)wert-STARTWERT]];
                   
+                  //[DiagrammExpoDatenArray addObject:[NSNumber numberWithFloat:(float)wert]];
                   
                   //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
+                  if (pos < 64)
                   {
                      fprintf(stderr,"%d\t",wert);
                   }
                   //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+
                }
-            fprintf(stderr,"\n");
+               [DiagrammExpoDatenArray addObject:tempDatenArray];
+               if (pos < 64)
+               {
+               fprintf(stderr,"\n");
+               }
             }
          
          }
@@ -2231,7 +2333,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             
          case NSAlertSecondButtonReturn: // Ignorieren
          {
-            return;
+            //return;
          }break;
             
          case NSAlertThirdButtonReturn: // Abbrechen
@@ -2316,6 +2418,51 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    //[Vertikalbalken setLevel:177];
    [Vertikalbalken setNeedsDisplay:YES];
    
+   NSRect DataFeld = [DatadiagrammFeld frame];
+   DataFeld.origin.x += 0.1;
+   Datadiagramm = [[rDataDiagramm alloc]initWithFrame:DataFeld];
+   [[[self window]contentView]addSubview:Datadiagramm];
+   
+    
+   NSRect OrdinatenFeld=[Datadiagramm frame];
+	OrdinatenFeld.size.width=30;
+	
+	OrdinatenFeld.origin.x-=35;
+   DataOrdinate =[[rOrdinate alloc]initWithFrame:OrdinatenFeld];
+   [[[self window]contentView]addSubview:DataOrdinate];
+   
+   [Datadiagramm setOrdinate:DataOrdinate];
+   [Datadiagramm setGrundlinienOffset:5.0];
+   
+   
+   int maxY = ENDWERT+1000;
+   int maxX = 2048+100;
+   
+   
+   
+   
+   float faktorX = DataFeld.size.width/maxX;
+   float faktorY = DataFeld.size.height/maxY;
+   NSLog(@"faktorX: %2.4f faktorY: %2.4f",faktorX,faktorY);
+ 
+   NSDictionary* VorgabenDic = [NSDictionary dictionaryWithObjectsAndKeys:
+                                [NSNumber numberWithFloat:faktorX],@"faktorx",[NSNumber numberWithFloat:faktorY],@"faktory", [NSNumber numberWithFloat:faktorX],@"faktorx",nil];
+  
+   [Datadiagramm setVorgaben:VorgabenDic];
+   NSArray* KanalArray = [NSArray arrayWithObjects:@"1",@"1",@"1",@"1",@"0",@"0",@"0",@"0",nil];
+   for (int index=0;index < [DiagrammExpoDatenArray count]-1;index++)
+   {
+      [Datadiagramm setWerteArray:[DiagrammExpoDatenArray objectAtIndex:index ] mitKanalArray:KanalArray mitVorgabenDic:VorgabenDic];
+   }
+   [Datadiagramm setNeedsDisplay:YES];
+  // [DataOrdinate setGrundlinienOffset:5.0];
+   //[DataOrdinate setMaxOrdinate:10];
+   NSPoint DiagrammEcke=[Datadiagramm frame].origin;
+	
+	DiagrammEcke.x+=2;
+//	[Datadiagramm setFrameOrigin:DiagrammEcke];
+   [Datadiagramm setNeedsDisplay:YES];
+
    ChecksummenArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
    checksumme=0;
 

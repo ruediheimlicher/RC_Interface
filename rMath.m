@@ -56,7 +56,7 @@
       }
    }
    wertarray[VEKTORSIZE]=ENDWERT + STARTWERT;
-  fprintf(stderr,"\n");
+  //fprintf(stderr,"\n");
    maxwert=wertarray[VEKTORSIZE-1];
    //fprintf(stderr,"maxwert: %2.2f\n",maxwert);
    for (int i=0;i<VEKTORSIZE;i++)
