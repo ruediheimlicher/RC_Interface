@@ -224,6 +224,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
    
+   [EE_DataFeld setStringValue:@""];
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
    
@@ -281,6 +282,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
    [EE_taskmark setStringValue:@" "];
+   eepromwritestatus |= (1<<EEPROM_WRITE_BUSY_BIT );
+   eepromwritestatus &= ~(1<<EEPROM_WRITE_OK_BIT );
 
    // C4
    NSLog(@"\n***");
@@ -292,19 +295,29 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
    
-   uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
+  // uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
+   
+   
+   int stufe = 1;
+   uint8 data= [[[EEDatenArray objectAtIndex: stufe ]objectAtIndex:EE_Startadresse]intValue];
 
+   
    //data = 0x14;
     
-   [EE_DataFeld setIntValue: data];
+ //  [EE_DataFeld setIntValue: data];
    
-    fprintf(stderr,"\n");
+    //reportWrite_1_Bytefprintf(stderr,"\n");
    fprintf(stderr,"data:\t%d\n",data);
  
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
    
    int EE_Data = [EE_DataFeld intValue];
+   if (EE_Data == 0)
+   {
+      NSBeep();
+      [EE_StartadresseFeld setIntValue:1];
+   }
    
    NSLog(@"reportWrite_1_Byte Data: %X ",EE_Data);
    
@@ -335,24 +348,26 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //free (sendbuffer);
       return;
    }
-   
+   bytebuffer[3] = EE_Data;
+   fprintf(stderr,"bytebuffer ready: \t");
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
    {
-      fprintf(stderr,"%x\t",bytebuffer[pos]);
+      fprintf(stderr,"\t%02X",bytebuffer[pos]);
    }
    fprintf(stderr,"\n");
-
+  
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    NSLog(@"reportWrite_1_Byte erfolg: %d",senderfolg);
    [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
-   
+   [EE_DataFeld setIntValue:EE_Data+1];
    free(bytebuffer);
 }
 
 
 - (IBAction)reportRead_1_Byte_Increment:(id)sender
 {
+
    // D4
    //NSLog(@"\n***");
    NSLog(@"reportRead_1_Byte");
@@ -754,6 +769,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSLog(@"reportHalt state: %d",[sender state]);
 
    int code = ![sender state];
+   [Read_1_Byte_Taste setEnabled:[sender state]];
+   [Write_1_Byte_Taste setEnabled:[sender state]];
+   [Read_Part_Taste setEnabled:[sender state]];
+   [Write_Part_Taste setEnabled:[sender state]];
+   [Write_Stufe_Taste setEnabled:[sender state]];
+   
    [self sendTask:0xF6+code];
    
 }
@@ -890,16 +911,16 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
    
-   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   fprintf(stderr,"Adresse: lo:\t%d\thi: \t%d\n",lo,hi);
    uint8_t*      sendbuffer =malloc(USB_DATENBREITE);
 
    sendbuffer[0] = 0xDA;
    sendbuffer[1] = lo;
    sendbuffer[2] = (hi & 0xFF00)>>8;
-   fprintf(stderr,"\n");
+   //fprintf(stderr,"\n");
    
-   fprintf(stderr,"send3: %d send4: %d\n",sendbuffer[1],sendbuffer[2]);
-   fprintf(stderr,"send3: %02X send4: %02X\n",sendbuffer[1],sendbuffer[2]);
+   //fprintf(stderr,"send3: %d send4: %d\n",sendbuffer[1],sendbuffer[2]);
+   //fprintf(stderr,"send3: %02X send4: %02X\n",sendbuffer[1],sendbuffer[2]);
    
    
    
@@ -918,7 +939,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    usbtask = EEPROM_WRITE_TASK;
    [EE_taskmark setBackgroundColor:[NSColor redColor]];
    [EE_taskmark setStringValue:@" "];
-   
+   eepromwritestatus |= (1<<EEPROM_WRITE_BUSY_BIT );
+   eepromwritestatus &= ~(1<<EEPROM_WRITE_OK_BIT );
+
    
    // ******************************************************************************************
    // Daten berechnen in awake
@@ -950,7 +973,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          lo = value;
          
       }
-      NSLog(@"LO: string: %@ loString value: %d",loString, value);
+      //NSLog(@"LO: string: %@ loString value: %d",loString, value);
       NSString* hiString = [EE_StartadresseFeldHexHI stringValue];
       theScanner = [NSScanner scannerWithString:hiString];
       
@@ -974,9 +997,64 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
    
  
-   [self send_EEPROMPartMitStufe:3 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
+   [self send_EEPROMPartMitStufe:1 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
 
    [EE_StartadresseFeld setIntValue: EE_Startadresse + EE_PARTBREITE];
+}
+
+- (IBAction)reportWrite_Stufe:(id)sender
+{
+   int stufe = [StufeFeld intValue];
+   NSLog(@"reportWrite_Stufe stufe: %d",stufe);
+   [Write_Stufe_Taste setEnabled:NO];
+   int startadresse = stufe * 2*VEKTORSIZE;
+   
+   NSLog(@"reportWrite_Stufe stufe: %d startadresse: %02X %d",stufe,startadresse,startadresse);
+   [self send_EEPROMPartMitStufe:stufe anAdresse:startadresse];
+   
+   NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:startadresse],@"startadresse",[NSNumber numberWithInt:0],@"part", [NSNumber numberWithInt:stufe],@"stufe", nil];
+   
+   
+   EE_WriteTimer = [[NSTimer scheduledTimerWithTimeInterval:0.5
+                                                 target:self
+                                               selector:@selector(write_EE_Part_Timerfunktion:)
+                                               userInfo:timerDic repeats:YES]retain];
+
+
+}
+
+-(void)write_EE_Part_Timerfunktion:(NSTimer*)timer
+{
+   if (eepromwritestatus & (1<<EEPROM_WRITE_BUSY_BIT)) // write noch im Gang
+   {
+      NSLog(@"write_EE_Part_Timerfunktion busy");
+
+      return;
+   }
+    int part = -1;
+   int startadresse = -1;
+   int stufe = -1;
+   if ([[[timer userInfo]objectForKey:@"part"]intValue] < (2*VEKTORSIZE)/EE_PARTBREITE -1)
+   {
+      part = [[[timer userInfo]objectForKey:@"part"]intValue]+1;
+      startadresse = [[[timer userInfo]objectForKey:@"startadresse"]intValue]+EE_PARTBREITE;
+      stufe = [[[timer userInfo]objectForKey:@"stufe"]intValue];
+
+      NSLog(@"write_EE_Part_Timerfunktion stufe: %d part: %d startadresse: %d | %02X",stufe,part,startadresse,startadresse);
+      
+      
+      
+      [[timer userInfo]setObject:[NSNumber numberWithInt:part] forKey:@"part"];
+      [[timer userInfo]setObject:[NSNumber numberWithInt:startadresse] forKey:@"startadresse"];
+   }
+   else{
+      NSLog(@"write_EE_Part_Timerfunktion end");
+      
+      [timer invalidate];
+      [timer release];
+      [Write_Stufe_Taste setEnabled:YES];
+   }
+
 }
 
 - (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse
@@ -992,35 +1070,27 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSScanner* theScanner;
    unsigned	  value;
    
+   [EE_taskmark setBackgroundColor:[NSColor redColor]];
+   [EE_taskmark setStringValue:@" "];
+   eepromwritestatus |= (1<<EEPROM_WRITE_BUSY_BIT );
+   eepromwritestatus &= ~(1<<EEPROM_WRITE_OK_BIT );
+
+   [EE_StartadresseFeld setIntValue: startadresse ];
+   
    int eepromchecksumme=0;
    int bytechecksumme=0;
    {
      // int startposition = EEPROMpage * PAGESIZE;
       for (int pos = 0;pos < EE_PARTBREITE;pos++)
       {
-         
-         if (pos % 2) // ungerade, wert fuer lo
-         {
-            //Wert an Stelle (pos + startposition) in ExpoDatenArray
-            int lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]objectAtIndex:(pos + startadresse)]intValue];
-            sendbufferLO[pos] = lo;
-            partbuffer[pos] = lo;
-            bytechecksumme += lo;
-            
-         }
-         else
-         {
-            int hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]objectAtIndex:(pos + startadresse)]intValue];
-            sendbufferHI[pos] = hi;
-            partbuffer[pos] = hi;
-            bytechecksumme +=hi;
-         }
-         
-         
+         uint8 data= [[[EEDatenArray objectAtIndex: stufe ]objectAtIndex:pos + startadresse]intValue];
+         sendbufferHI[pos] = data;
+         partbuffer[pos] = data;
+         bytechecksumme +=data;
       }
-      fprintf(stderr,"\n");
+      //fprintf(stderr,"\n\n*************\n");
 
-      fprintf(stderr,"send_EEPROMPartAnAdresse %d eepromchecksumme: %d bytechecksumme1: %d\n", startadresse, eepromchecksumme,bytechecksumme);
+      //fprintf(stderr,"send_EEPROMPartAnAdresse %d eepromchecksumme: %d bytechecksumme1: %d\n", startadresse, eepromchecksumme,bytechecksumme);
       bytechecksumme=0;
       for (int pos = 0;pos < EE_PARTBREITE;pos++)
       {
@@ -1028,11 +1098,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          //wert <<= 8;
          //wert += partbuffer[pos];
          //fprintf(stderr,"| \t%2d\t%d\t* \tw: %d *\t\n",lo,hi,wert);
-         fprintf(stderr,"%x\t",partbuffer[pos]);
+       //  fprintf(stderr,"%x\t",partbuffer[pos]);
          bytechecksumme+= partbuffer[pos];
       }
-      fprintf(stderr,"\n");
-      fprintf(stderr,"send_EEPROMPartAnAdresse %d eepromchecksumme: %d bytechecksumme2: %d\n", startadresse, eepromchecksumme,bytechecksumme);
+      //fprintf(stderr,"\n*************\n");
+      //fprintf(stderr,"send_EEPROMPartAnAdresse %d eepromchecksumme: %d bytechecksumme2: %d\n", startadresse, eepromchecksumme,bytechecksumme);
  
    }
   
@@ -1063,7 +1133,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    sendbuffer[2] = (startadresse & 0xFF00)>>8;
    
    
-   fprintf(stderr,"send_EEPROMPART sendbuffer\n");
+ //  fprintf(stderr,"send_EEPROMPART sendbuffer\n");
    
    
    eepromchecksumme=0;
@@ -1071,15 +1141,17 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    {
       int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
       
-      fprintf(stderr,"%d\t",wert);
+//      fprintf(stderr,"%d\t",wert);
       eepromchecksumme+= wert;
       bytechecksumme+= (uint8)sendbuffer[k];
       bytechecksumme+= (uint8)sendbuffer[k+1];
    }
 
-fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,bytechecksumme);
+//fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,bytechecksumme);
    sendbuffer[3] = bytechecksumme & 0x00FF;
    sendbuffer[4] = (bytechecksumme & 0xFF00)>>8;
+   fprintf(stderr,"send_EEPROMPART sendbuffer\n");
+
    for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
    {
       if (k==EE_PARTBREITE)
@@ -1098,16 +1170,14 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    
    fprintf(stderr,"\n");
    
-   fprintf(stderr,"send3: %d send4: %d\n",sendbuffer[3],sendbuffer[4]);
-   fprintf(stderr,"send3: %02X send4: %02X\n",sendbuffer[3],sendbuffer[4]);
-
-  
+ //  fprintf(stderr,"send3: %d send4: %d\n",sendbuffer[3],sendbuffer[4]);
+ //  fprintf(stderr,"send3: %02X send4: %02X\n",sendbuffer[3],sendbuffer[4]);
    
    int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
    
    NSLog(@"send_EEPROMPART erfolg: %d Dataposition: %d",senderfolg,Dataposition);
 
- free (partbuffer);
+   free (partbuffer);
    free(sendbuffer);
 }
 
@@ -1478,8 +1548,12 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                      {
                         [EE_taskmark setStringValue:@"OK"];
                         [EE_taskmark setBackgroundColor:[NSColor greenColor]];
-                        
+                        eepromwritestatus &= ~(1<<EEPROM_WRITE_BUSY_BIT );
+                        eepromwritestatus |= (1<<EEPROM_WRITE_OK_BIT );
+
                      }
+                     int startadresse = buffer[1] | (buffer[2]>>8);
+                     fprintf(stderr,"startadresse: %d\ndata: %02X\ncheck: %02X\nerr_count: %d\tw: %d\n ",startadresse,buffer[4],buffer[5],buffer[3],buffer[6]);
                      
                      for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                      {
@@ -1508,8 +1582,14 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   {
                      
                      fprintf(stderr,"* echo CB in Ladefunktion: Fehler: %d\n",(uint8_t)buffer[3]);
-                     [EE_taskmark setStringValue:@"OK"];
-                     [EE_taskmark setBackgroundColor:[NSColor greenColor]];
+                     if ((uint8_t)buffer[3] == 0)
+                     {
+                        [EE_taskmark setStringValue:@"OK"];
+                        [EE_taskmark setBackgroundColor:[NSColor greenColor]];
+                        eepromwritestatus &= ~(1<<EEPROM_WRITE_BUSY_BIT );
+                        eepromwritestatus |= (1<<EEPROM_WRITE_OK_BIT );
+                     }
+
                      for (int k=0;k<USB_DATENBREITE;k++) //
                      {
                         if (k==EE_PARTBREITE)
@@ -1518,7 +1598,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                         }
                         else if (k && k%(EE_PARTBREITE/2)==0)
                         {
-                           fprintf(stderr,"*\t");
+                           fprintf(stderr,"\t");
                         }
                         
                         fprintf(stderr,"%02X\t",(uint8_t)buffer[k]);
@@ -1676,7 +1756,7 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                         }
                         else if (k && k%(EE_PARTBREITE/2)==0)
                         {
-                           fprintf(stderr,"*\t");
+                           fprintf(stderr,"\t");
                         }
                         
                         
@@ -1694,8 +1774,10 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   case 0xEC:
                   {
                      
-                     fprintf(stderr,"* echo default EC nach laden: \n");
-                     
+                     fprintf(stderr,"* echo EC nach laden: \n");
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]>>8);
+                     fprintf(stderr,"startadresse: %02d\nerr_count: %d\n ",startadresse,buffer[3]);
+
                      for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                      {
                         if (k==EE_PARTBREITE)
@@ -1704,10 +1786,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                         }
                         else if (k && k%(EE_PARTBREITE/2)==0)
                         {
-                           fprintf(stderr,"*\t");
+                           fprintf(stderr,"\t");
                         }
-                        
-                        
                         fprintf(stderr,"%02X\t",(uint8)buffer[k]);
                         
                         //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
@@ -2115,6 +2195,8 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
 		string[0]=h + 'A'; 
 	}
    
+   eepromwritestatus=0; // enthalt Bits fuer den Write-Status
+   
    EEPROMposition = 0;
    
    //int aa=(15625& 0x00FF)>>8;
@@ -2129,17 +2211,25 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
    [self loadExpoDatenArray];
    int anzstufen=4;
    
-   NSMutableArray* newExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-   NSMutableArray* DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   EEDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
+   
+   DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
    for (int stufe=0;stufe<anzstufen;stufe++)
    {
       NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
       
-  //    fprintf(stderr,"stufe: %d\n",stufe);
+      fprintf(stderr,"stufe: %d\n",stufe);
       int wert=0;
+      
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
       {
+         if (pos%32==0)
+         {
+//            fprintf(stderr,"\n");
+         }
+
          if (pos%2 == 0)
          {
             wert=0;
@@ -2152,12 +2242,45 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
             
             //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
             //fprintf(stderr,"%d\t%d\n",pos/2,wert);
-            //fprintf(stderr,"\t%d\t%d | ",lo,hi);
+//            fprintf(stderr,"\t%d\t%d",lo,hi);
          }
       }
-      [newExpoDatenArray addObject:neuerDatenArray];
+//      fprintf(stderr,"\n\n");
+      [EEDatenArray addObject:neuerDatenArray];
    }
    
+   
+   
+   // Werte ausgeben
+   /*
+   for (int stufe=0;stufe<anzstufen;stufe++)
+   {
+      NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
+      
+      fprintf(stderr,"stufe: %d\n",stufe);
+      int wert=0;
+      
+      for (int pos=0;pos<2*VEKTORSIZE-1;pos+=2)
+      {
+         if (pos%32==0)
+         {
+            fprintf(stderr,"\n");
+         }
+         
+         if (pos%2 == 0)
+         {
+            wert=0;
+            uint8 lo = [[neuerDatenArray objectAtIndex:pos]intValue];
+            uint8 hi = [[neuerDatenArray objectAtIndex:pos+1]intValue];
+            wert = hi;
+            wert <<= 8;
+            wert += lo;
+            fprintf(stderr,"\t%d",wert);
+         }
+      }
+      fprintf(stderr,"\n\n");
+   }
+*/
 
  
    {
@@ -2169,16 +2292,16 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
          
          if (pos%2 == 0)
          {
-            //if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))
+            if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))
             {
-               fprintf(stderr,"%d\t",pos/2);
+ //              fprintf(stderr,"%d\t",pos/2);
                NSMutableArray* tempDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
                [tempDatenArray addObject:[NSNumber numberWithFloat:(float)pos]];
                for (int stufe=0;stufe<anzstufen;stufe++)
                {
                   wert=0;
-                  uint8 lo = [[[newExpoDatenArray objectAtIndex:stufe] objectAtIndex:pos]intValue];
-                  uint8 hi = [[[newExpoDatenArray objectAtIndex:stufe] objectAtIndex:pos+1]intValue];
+                  uint8 lo = [[[EEDatenArray objectAtIndex:stufe] objectAtIndex:pos]intValue];
+                  uint8 hi = [[[EEDatenArray objectAtIndex:stufe] objectAtIndex:pos+1]intValue];
                   wert = hi;
                   wert <<= 8;
                   wert += lo;
@@ -2187,17 +2310,16 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
                   //[DiagrammExpoDatenArray addObject:[NSNumber numberWithFloat:(float)wert]];
                   
                   //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
-                  if (pos < 64)
-                  {
-                     fprintf(stderr,"%d\t",wert);
-                  }
+                 
+  //                  fprintf(stderr,"%d\t",wert);
+                  
                   //fprintf(stderr,"\t%d\t%d | ",lo,hi);
 
                }
                [DiagrammExpoDatenArray addObject:tempDatenArray];
-               if (pos < 64)
+              
                {
-               fprintf(stderr,"\n");
+  //             fprintf(stderr,"\n");
                }
             }
          
@@ -2638,6 +2760,12 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
     [nc postNotificationName:@"IOWarriorBeenden" object:self userInfo:BeendenDic];
     
     */
+   if ([Halt_Taste state])
+   {
+      NSBeep();
+      [Halt_Taste performClick:NULL ];
+      return NO;
+   }
 	[NSApp terminate:self];
 	return YES;
 }
@@ -2651,6 +2779,13 @@ fprintf(stderr,"\neepromchecksumme : %d bytechecksumme3: %d\n",eepromchecksumme,
       //NSLog(@"Beenden savePListAktion");
       [self savePListAktion:NULL];
    }
+   if ([Halt_Taste state])
+   {
+      NSBeep();
+      [Halt_Taste performClick:NULL ];
+      return NO;
+   }
+
 	return YES;
 }
 

@@ -40,6 +40,9 @@
 #define EEPROM_AUSGABE_TASK   5
 
 
+#define EEPROM_WRITE_BUSY_BIT 0
+#define EEPROM_WRITE_OK_BIT   1
+
 
  struct Abschnitt
  {
@@ -116,9 +119,17 @@
 	// SPI
 	int					Teiler;
 	
-	// TWI
-	IBOutlet    id      InitI2CTaste;
-	
+   IBOutlet id       Halt_Taste;
+
+   IBOutlet id       Write_1_Byte_Taste;
+   IBOutlet id       Read_1_Byte_Taste;
+   IBOutlet id       Write_Part_Taste;
+   IBOutlet id       Read_Part_Taste;
+   
+   IBOutlet id       Write_Stufe_Taste;
+   IBOutlet id       StufeFeld;
+   
+   NSTimer* EE_WriteTimer;
 	
 	// CNC
 	NSMutableArray*	USB_DatenArray;
@@ -135,13 +146,20 @@
    int               halt;
    NSMutableIndexSet* HomeAnschlagSet;
    char*             newsendbuffer;
+   
+   int               eepromwritestatus; // was tun
   
    int               usbstatus; // was tun
    int               usbtask; // welche Task ist aktuell
    
    // RC
    
-   NSMutableArray*   ExpoDatenArray;     // Daten fuer EEPROM mit exponentialkurven
+   NSMutableArray*   ExpoDatenArray;     // Daten fuer EEPROM mit exponentialkurven, Werte in zwei Arrays lo, hi
+   
+   NSMutableArray* DiagrammExpoDatenArray; // Daten fuer EEPROM nach stufe
+   
+   NSMutableArray* EEDatenArray;// Daten fuer EEPROM mit exponentialkurven linear
+   
 	NSMutableArray*	USB_EEPROMArray;
 	int					EEPROMposition;
    
@@ -196,6 +214,7 @@
 
 - (IBAction)reportWrite_1_Line:(id)sender;
 - (IBAction)reportWrite_Part:(id)sender;
+- (IBAction)reportWrite_Stufe:(id)sender;
 
 - (IBAction)reportRead_1_Byte:(id)sender;
 - (IBAction)reportRead_Part:(id)sender;

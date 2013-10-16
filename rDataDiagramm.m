@@ -51,7 +51,7 @@ void r_itoa(int32_t zahl, char* string)
       MaxOrdinate=[self frame].size.height-15;
       MaxAbszisse=[self frame].size.width-15;
 		FaktorY=(frameRect.size.height-15.0)/255.0; // Reduktion auf Feldhoehe
-		NSLog(@"DataDiagramm Diagrammfeldhoehe: %2.2f Faktor: %2.2f",(frameRect.size.height-15),FaktorY);
+		//NSLog(@"DataDiagramm Diagrammfeldhoehe: %2.2f Faktor: %2.2f",(frameRect.size.height-15),FaktorY);
       
       
       Graph=[NSBezierPath bezierPath];

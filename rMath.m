@@ -64,7 +64,7 @@
       float wert = STARTWERT + (wertarray[i]-STARTWERT)/(maxwert - STARTWERT) * (ENDWERT - STARTWERT) ;
      intwertarray[i]= round(wert);
       int intwert = round(wert);
-      if ((i % 128 ==0)|| (i==VEKTORSIZE-1))
+      if ((i % 64 ==0)|| (i==VEKTORSIZE-1))
       {
    //      fprintf(stderr,"%2d\t%2.2f\n",i,wert);
          fprintf(stderr,"%d\t",intwert);
