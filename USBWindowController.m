@@ -295,9 +295,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    uint8 lo = EE_Startadresse & 0x00FF;
    uint8 hi = (EE_Startadresse & 0xFF00)>>8;
    
-  // uint8 data= [[[[ExpoDatenArray objectAtIndex:1]objectAtIndex:(EE_Startadresse % 2)]objectAtIndex:EE_Startadresse]intValue];
-   
-   
    int stufe = 1;
    uint8 data= [[[EEDatenArray objectAtIndex: stufe ]objectAtIndex:EE_Startadresse]intValue];
 
@@ -810,6 +807,262 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
+- (IBAction)reportFix_KanalSettings:(id)sender // 0xF4
+{
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+  // NSLog(@"reportFix_Settings: modelindex: %d Settings: %@",modelindex,[SettingArray description]);
+   
+   
+   uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
+   int Fix_Startadresse = TASK_OFFSET+ modelindex * SETTINGBREITE; //Speicherort fuer Kanal-Settings
+   uint8 lo = Fix_Startadresse & 0x00FF;
+   uint8 hi = (Fix_Startadresse & 0xFF00)>>8;
+   bytebuffer[0] = 0xF4;
+   bytebuffer[1] = Fix_Startadresse & 0x00FF;
+   bytebuffer[2] = (Fix_Startadresse & 0xFF00)>>8;
+
+   uint8_t changecode=0; // Bits fuer geaenderte Kanaele
+   
+   NSMutableArray * FixDatenArray = [[NSMutableArray alloc]initWithCapacity:0]; // Settings nur fuer zu aendernde Kanaele
+   
+   for (int kanal=0;kanal < [[ModelArray objectAtIndex:modelindex] count];kanal++)
+   {
+      if ([[[[ModelArray objectAtIndex:modelindex] objectAtIndex:kanal]objectForKey:@"go"]intValue])
+      {
+         [FixDatenArray addObject:[[ModelArray objectAtIndex:modelindex] objectAtIndex:kanal]];
+         changecode |= (1<< kanal);
+      }
+   }
+   
+   bytebuffer[3] = changecode; // welcher kanal zu aendern
+   bytebuffer[4] = modelindex; // welches modell
+   
+   fprintf(stderr,"\nmodelindex: %d changecode: %d\n",modelindex,changecode);
+
+   for (uint8_t kanal=0;kanal < 8;kanal++)
+   {
+      if (changecode & (1<<kanal))
+      {
+        // fprintf(stderr,"+%d+\t",changecode & (1<<kanal));
+         fprintf(stderr,"*%d*\t",kanal);
+      }
+   }// for kanal
+   fprintf(stderr,"*\n");
+   
+/*
+ art = 0;      Offset: 2   EXPO_OFFSET
+ expoa = 0;    Offset: 0
+ expob = 2;    Offset: 4
+ go = 1;
+ kanal = 0;
+ levela = 1;   Offset: 0   LEVEL_OFFSET
+ levelb = 1;   Offset: 4
+      
+ nummer = 0;
+ richtung = 0; Offset: 7   
+ state = 1;
+ 
+ (
+ mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+ mixcanals           Offset: 1 // wer mit welchem kanal
+ 
+ )
+ */
+   NSLog(@"reportFix_KanalSettings Data: %@ changecode: %d",FixDatenArray, changecode);
+
+   int datastartbyte = 16; // Beginn  der Settings auf dem buffer
+   fprintf(stderr,"kanalsettings:\n");
+   for (int kanal=0;kanal < [FixDatenArray count];kanal++)
+   {
+      
+      uint8_t expowert =0;
+      NSDictionary* kanalDic = [FixDatenArray objectAtIndex:kanal];
+      int expoa = [[kanalDic objectForKey:@"expoa"]intValue];
+      int expob = [[kanalDic objectForKey:@"expob"]intValue];
+      
+      expowert |= expoa & 0x03; // Bit 0,1
+      expowert |= (expob & 0x03) << 4; // Bit 0,1
+
+      int art = [[kanalDic objectForKey:@"art"]intValue];
+      expowert |= (art & 0x03) << 2; // Bit 2,3
+      
+      int richtung = [[kanalDic objectForKey:@"richtung"]intValue];
+      expowert |= (richtung & 0x01) << 7; // Bit 7
+      NSLog(@"reportFix_KanalSettings kanal: %d expowert: %02X ",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
+      
+      uint8_t levelwert =0;
+      int levela = [[kanalDic objectForKey:@"levela"]intValue];
+      levelwert |= (levela & 0x07) ; // Bit 0,1,2
+
+      int levelb = [[kanalDic objectForKey:@"levelb"]intValue];
+      //NSLog(@"expowertb: %d levelb: %d %d",levelwert,levelb, levelb & 0x07);
+      levelwert |= (levelb & 0x07) <<4 ; // Bit 4,5,6
+      NSLog(@"reportFix_KanalSettings kanal: %d levelwert: %02X ",[[kanalDic objectForKey:@"nummer"]intValue],levelwert);
+            
+      bytebuffer[datastartbyte + 2*kanal] = expowert;
+      bytebuffer[datastartbyte + 2*kanal + 1] = levelwert;
+      fprintf(stderr,"\t%02X\t%02X *\n",expowert,levelwert);
+         
+   } // for kanal
+   fprintf(stderr,"\n");
+   fprintf(stderr,"report FixSettings bytebuffer ready: \n");
+   for (int pos = 0;pos < EE_PARTBREITE;pos++)
+   {
+      if (pos%8 ==0)
+      {
+         fprintf(stderr,"\t");
+      }
+      if (pos%16 ==0)
+      {
+         fprintf(stderr,"\n");
+      }
+      
+      fprintf(stderr,"\t%02X",bytebuffer[pos]);
+   }
+   fprintf(stderr,"\n");
+
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   
+   free(bytebuffer);
+}
+
+- (IBAction)reportRead_Settings:(id)sender // 0xF5
+{
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+   uint8_t*      bytebuffer;
+   bytebuffer=malloc(USB_DATENBREITE);
+   
+   bytebuffer[0] = 0xF5;
+   bytebuffer[1] = TASK_OFFSET & 0x00FF;
+   bytebuffer[2] = (TASK_OFFSET & 0xFF00)>>8;
+   bytebuffer[3] = modelindex;
+   
+    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   
+   NSLog(@"reportRead_KanalSettings erfolg: %d",senderfolg);
+   free(bytebuffer);
+
+}
+
+- (IBAction)reportFix_MixingSettings:(id)sender // 0xFA
+{
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+   
+   NSLog(@"\nreportFix_MixingSettings: modelindex: %d Settings: %@",modelindex,[[MixingArray objectAtIndex:modelindex] description]);
+      
+   uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
+   int Mix_Startadresse = TASK_OFFSET + MIX_OFFSET;
+   uint8 lo = Mix_Startadresse & 0x00FF;
+   uint8 hi = (Mix_Startadresse & 0xFF00)>>8;
+   bytebuffer[0] = 0xFA;
+   bytebuffer[1] = Mix_Startadresse & 0x00FF;
+   bytebuffer[2] = (Mix_Startadresse & 0xFF00)>>8;
+   
+   uint8_t changecode=0; // Bits fuer geaenderte Kanaele
+   bytebuffer[4] = modelindex; // welches modell
+
+   fprintf(stderr,"\nreportFix_MixingSettings modelindex: %d  count: %d\n",modelindex,(int)[[MixingArray objectAtIndex:modelindex] count]);
+
+   NSMutableArray * MixingDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   //for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
+   for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
+   {
+      if ([[[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]objectForKey:@"go"]intValue])
+      {
+         [MixingDatenArray addObject:[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]];
+         changecode |= (1<< mixing);
+      }
+   }
+   bytebuffer[3] = changecode;
+   bytebuffer[4] = modelindex; // welches modell
+   
+   fprintf(stderr,"\nmodelindex: %d changecode: %d\n",modelindex,changecode);
+   
+   for (uint8_t kanal=0;kanal < 8;kanal++)
+   {
+      if (changecode & (1<<kanal))
+      {
+         // fprintf(stderr,"+%d+\t",changecode & (1<<kanal));
+         fprintf(stderr,"*%d*\t",kanal);
+      }
+   }// for kanal
+   fprintf(stderr,"\n");
+   
+   /*
+   mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+   mixcanals           Offset: 1 // wer mit welchem kanal
+   
+    MIX_OFFSET 0x40
+    
+    NSMutableDictionary* mixingdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+    [NSNumber numberWithInt:settingindex],@"mixnummer",
+    [NSNumber numberWithInt:0],@"mixart",
+    [NSNumber numberWithInt:0xFF],@"canala",
+    [NSNumber numberWithInt:0xFF],@"canalb",
+    [NSString stringWithFormat:@"Mix %d",0],@"mixing",
+    nil]retain];
+
+    
+    */
+   
+   NSLog(@"reportFix_MixingSettings Data: %@ changecode: %d",MixingDatenArray, changecode);
+
+   int datastartbyte = 16; // Beginn  der Settings auf dem buffer
+   fprintf(stderr,"kanalsettings:\n");
+   
+   for (int mixing=0;mixing < [MixingDatenArray count];mixing++)
+   {
+      // beteiligte Kanaele
+      uint8_t mixwert =0;
+      NSDictionary* mixDic = [MixingDatenArray objectAtIndex:mixing];
+      int mixa = [[mixDic objectForKey:@"canala"]intValue];
+      int mixb = [[mixDic objectForKey:@"canalb"]intValue];
+      if ((mixa >= 8) || (mixb >= 8))
+      {
+         mixwert = 0x88;
+      }
+      else
+      {
+         mixwert |= mixa & 0x07; // Bit 0-2
+         mixwert |= (mixb & 0x07) << 4; // Bit 0-2
+      }
+     // mixwert = 0x88;
+      fprintf(stderr,"mixa:\t%02X\tmixb:\t%02X\tmixwert:\t%02X *\t %d\n",mixa,mixb,mixwert,mixwert);
+
+      // Mix-Art: V-Mix, Butterfly usw
+      uint8_t artwert =0;
+      int art = [[mixDic objectForKey:@"mixart"]intValue];
+      artwert |= (art & 0x03); // Bit 0-2
+      
+      bytebuffer[datastartbyte + 2*mixing] = mixwert;
+      bytebuffer[datastartbyte + 2*mixing + 1] = artwert;
+
+      fprintf(stderr,"mixwert:\t%02X\tartwert:\t%02X *\n",mixwert,artwert);
+      
+   } // for mixing
+   fprintf(stderr,"\nreportFix_MixingSettings bytebuffer ready: \n");
+   for (int pos = 0;pos < EE_PARTBREITE;pos++)
+   {
+      if (pos%8 ==0)
+      {
+         fprintf(stderr,"\t");
+      }
+      if (pos%16 ==0)
+      {
+         fprintf(stderr,"\n");
+      }
+      
+      fprintf(stderr,"\t%02X",bytebuffer[pos]);
+   }
+   fprintf(stderr,"\n");
+   
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   
+   free(bytebuffer);
+
+}
+
+
 - (void)loadExpoDatenArray
 {
    // ******************************************************************************************
@@ -849,7 +1102,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          }
       }
       
-      
       wert=0;
       uint8 lo = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:0]lastObject]intValue];
       uint8 hi = [[[[ExpoDatenArray objectAtIndex:stufe]objectAtIndex:1]lastObject]intValue];
@@ -869,6 +1121,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportRead_Part:(id)sender
 {
+   //     EEDatenArray enthaelt anzstufen Arrays mit 2* Vektorsize Werten (lo, hi hintereinander) fuer die Stufe
+
   // [EE_taskmark setBackgroundColor:[NSColor redColor]];
   // [EE_taskmark setStringValue:@" "];
    uint8 lo=0;
@@ -947,9 +1201,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    // Daten berechnen in awake
    // ******************************************************************************************
 
-   // ******************************************************************************************
-   // Erster Abschnitt enthält code
-   // ******************************************************************************************
+   // *******************************************************************************************************************
+   //     EEDatenArray enthaelt anzstufen Arrays mit 2* Vektorsize Werten (lo, hi hintereinander) fuer die Stufe
+   // *******************************************************************************************************************
+   
    Dataposition = 0;
    [USB_DatenArray removeAllObjects];
    
@@ -994,28 +1249,71 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
    [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
    
-   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
+   int stufe = [StufeFeld intValue];
+   fprintf(stderr,"Stufe: \t%d\t Adresse lo: \t%d\thi: \t%d\n",stufe, lo,hi);
    
  
-   [self send_EEPROMPartMitStufe:1 anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
+   [self send_EEPROMPartMitStufe:stufe anAdresse:(lo & 0x00FF) | (hi & 0xFF00)>>8];
 
    [EE_StartadresseFeld setIntValue: EE_Startadresse + EE_PARTBREITE];
 }
 
 - (IBAction)reportWrite_Stufe:(id)sender
 {
+   //     EEDatenArray enthaelt anzstufen Arrays mit 2* Vektorsize Werten (lo, hi hintereinander) fuer die Stufe
+   
+   NSAlert *Warnung = [[[NSAlert alloc] init] autorelease];
+   [Warnung addButtonWithTitle:@"Write Data"];
+   [Warnung addButtonWithTitle:@"Cancel"];
+   //	[Warnung addButtonWithTitle:@""];
+   //[Warnung addButtonWithTitle:@"Abbrechen"];
+   [Warnung setMessageText:[NSString stringWithFormat:@"%@",NSLocalizedString(@"Really overwrite the data in this region?",@"Die Daten für diese Stufe wirklich neu schreiben?")]];
+   
+   NSString* s1=NSLocalizedString(@"???\0","@Alle vorhandenen Daten werden ueberschrieben.");
+   NSString* s2=@"";
+   NSString* InformationString=[NSString stringWithFormat:@"%@\n%@",s1,s2];
+   [Warnung setInformativeText:InformationString];
+   [Warnung setAlertStyle:NSWarningAlertStyle];
+   
+   int antwort=[Warnung runModal];
+   
+   // return;
+    NSLog(@"antwort: %d",antwort);
+   switch (antwort)
+   {
+      case NSAlertFirstButtonReturn: // 1000, Taste ganz rechts
+      {
+         // go further
+      }break;
+         
+      case NSAlertSecondButtonReturn: // 1001 Ignorieren
+      {
+         //go back
+         return;
+      }break;
+         
+      case NSAlertThirdButtonReturn: // Abbrechen
+      {
+         return;
+      }break;
+   }
+
    int stufe = [StufeFeld intValue];
    NSLog(@"reportWrite_Stufe stufe: %d",stufe);
    [Write_Stufe_Taste setEnabled:NO];
-   int startadresse = stufe * 2*VEKTORSIZE;
+   [PartnummerFeld setIntValue:0];
+   int startadresse = 0;
    
    NSLog(@"reportWrite_Stufe stufe: %d startadresse: %02X %d",stufe,startadresse,startadresse);
+   
    [self send_EEPROMPartMitStufe:stufe anAdresse:startadresse];
+   
+   NSLog(@"reportWrite_Stufe timer start");
    
    NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:startadresse],@"startadresse",[NSNumber numberWithInt:0],@"part", [NSNumber numberWithInt:stufe],@"stufe", nil];
    
    
-   EE_WriteTimer = [[NSTimer scheduledTimerWithTimeInterval:0.5
+   EE_WriteTimer = [[NSTimer scheduledTimerWithTimeInterval:0.6
                                                  target:self
                                                selector:@selector(write_EE_Part_Timerfunktion:)
                                                userInfo:timerDic repeats:YES]retain];
@@ -1025,6 +1323,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 -(void)write_EE_Part_Timerfunktion:(NSTimer*)timer
 {
+   //     EEDatenArray enthaelt anzstufen Arrays mit 2* Vektorsize Werten (lo, hi hintereinander) fuer die Stufe
+
    if (eepromwritestatus & (1<<EEPROM_WRITE_BUSY_BIT)) // write noch im Gang
    {
       NSLog(@"write_EE_Part_Timerfunktion busy");
@@ -1035,13 +1335,16 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int startadresse = -1;
    int stufe = -1;
    if ([[[timer userInfo]objectForKey:@"part"]intValue] < (2*VEKTORSIZE)/EE_PARTBREITE -1)
+   //if ([[[timer userInfo]objectForKey:@"part"]intValue] < 16)
    {
       part = [[[timer userInfo]objectForKey:@"part"]intValue]+1;
+      [PartnummerFeld setIntValue:part];
       startadresse = [[[timer userInfo]objectForKey:@"startadresse"]intValue]+EE_PARTBREITE;
       stufe = [[[timer userInfo]objectForKey:@"stufe"]intValue];
 
       NSLog(@"write_EE_Part_Timerfunktion stufe: %d part: %d startadresse: %d | %02X",stufe,part,startadresse,startadresse);
       
+      [self send_EEPROMPartMitStufe:stufe anAdresse:startadresse];
       
       
       [[timer userInfo]setObject:[NSNumber numberWithInt:part] forKey:@"part"];
@@ -1059,7 +1362,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse
 {
-   
+   NSLog(@"send_EEPROMPartMitStufe %d anAdresse: %d\n", stufe, startadresse);
+
    //EEPROMposition++;
    char*      sendbufferLO = malloc(PAGESIZE);
    char*      sendbufferHI = malloc(PAGESIZE);
@@ -1074,8 +1378,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [EE_taskmark setStringValue:@" "];
    eepromwritestatus |= (1<<EEPROM_WRITE_BUSY_BIT );
    eepromwritestatus &= ~(1<<EEPROM_WRITE_OK_BIT );
+   
+   uint16_t stufestartadresse = stufe * 2*VEKTORSIZE;
 
-   [EE_StartadresseFeld setIntValue: startadresse ];
+   [EE_StartadresseFeld setIntValue: stufestartadresse +startadresse];
    
    int eepromchecksumme=0;
    int bytechecksumme=0;
@@ -1129,8 +1435,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //sendbuffer[i]=(char)[[tempUSB_DatenArray objectAtIndex:i]UTF8String];
    }
    sendbuffer[0] = 0xCA;
-   sendbuffer[1] = startadresse & 0x00FF;
-   sendbuffer[2] = (startadresse & 0xFF00)>>8;
+   sendbuffer[1] = (stufestartadresse + startadresse) & 0x00FF;
+   sendbuffer[2] = ((stufestartadresse + startadresse) & 0xFF00)>>8;
    
    
  //  fprintf(stderr,"send_EEPROMPART sendbuffer\n");
@@ -1151,6 +1457,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    sendbuffer[3] = bytechecksumme & 0x00FF;
    sendbuffer[4] = (bytechecksumme & 0xFF00)>>8;
    fprintf(stderr,"send_EEPROMPART sendbuffer\n");
+   fprintf(stderr,"startadresse lo: %02X\t hi: %02X\tstufestartadresse: %04X\t %d \tposition: %d\n",(uint8)sendbuffer[1],(uint8)sendbuffer[2],stufestartadresse,stufestartadresse,stufestartadresse + startadresse );
 
    for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
    {
@@ -1160,7 +1467,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
       else if (k && k%(EE_PARTBREITE/2)==0)
       {
-         fprintf(stderr,"|\t");
+         fprintf(stderr,"\t");
       }
       fprintf(stderr,"%02X\t",(uint8)sendbuffer[k]);
       
@@ -1175,7 +1482,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    int senderfolg= rawhid_send(0, sendbuffer, 64, 50);
    
-   NSLog(@"send_EEPROMPART erfolg: %d Dataposition: %d",senderfolg,Dataposition);
+//   NSLog(@"send_EEPROMPART erfolg: %d Dataposition: %d",senderfolg,Dataposition);
 
    free (partbuffer);
    free(sendbuffer);
@@ -1184,7 +1491,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)write_EEPROM
 {
-   NSLog(@"write_EEPROM");
+//   NSLog(@"write_EEPROM");
 	//NSLog(@"write_EEPROM USB_DatenArray anz: %d\n USB_DatenArray: %@",[USB_DatenArray count],[USB_DatenArray description]);
    
    if (Dataposition < [USB_DatenArray count])
@@ -1458,6 +1765,30 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       {
          NSLog(@"usbtask: %d buffer0: %02X",usbtask,buffer[0]& 0xFF);
       }
+      /*
+      if (buffer[0] & 0xF0)  
+      {
+         for (int k=60;k<64;k++) // 32 16Bit-Werte
+         {
+            
+            if (k==48)
+            {
+               fprintf(stderr,"\n\n");
+               
+            }
+            
+            fprintf(stderr,"%02X\t",(uint8)buffer[k]);
+            //fprintf(stderr,"%02X\t%02X\t",(uint8)buffer[k],(uint8)buffer[k+1]);
+            //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
+            //fprintf(stderr,"%d\t",wert);
+         }
+         
+         
+         fprintf(stderr,"\n");
+      }
+       */
+     
+      
 //      NSLog(@"code raw result: %d dataRead: %X",result,(UInt8)buffer[0] );
       // start
       
@@ -1613,18 +1944,23 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   }break;
                      
                      
-                  case 0xD5: // read EEPROM Byte
+                  case 0xD5: // read Settings
                   {
-                     fprintf(stderr,"echo read EEPROM Byte data hex: %02X  dec: %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+                     int readadresse = (uint8_t)buffer[1] | ((uint8_t)buffer[2] <<8);
+        //             fprintf(stderr,"echo read Settings Byte adresse hex:\t %02X\t  dec:\t %d\t",readadresse,readadresse);
+                     
+        //             fprintf(stderr,"Byte data hex:\t %02X\t  dec:\t %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+
                      // buffer1 ist data
                      
+                     /*
                      for (int i=0;i<8;i++)
                      {
                         fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
                         //fprintf(stderr," | ");
                      }
                      fprintf(stderr,"\n");
-                     
+                     */
                      
                      [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
                      [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
@@ -1775,7 +2111,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   {
                      
                      fprintf(stderr,"* echo EC nach laden: \n");
-                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]>>8);
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
                      fprintf(stderr,"startadresse: %02d\nerr_count: %d\n ",startadresse,buffer[3]);
 
                      for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
@@ -1845,10 +2181,294 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
                      }
                      
+                     int ppmalo =  (UInt8)buffer[60];
+                     int ppmahi =  (UInt8)buffer[61];
+                     int ppma = ppmalo | (ppmahi << 8);
+                     //fprintf(stderr,"ppma \t%d\t%d\t%d\n",ppmalo,ppmahi,ppma);
+                     [PPMFeldA setIntValue:ppma];
+                     
+ 
+                     int ppmblo =  (UInt8)buffer[62];
+                     int ppmbhi =  (UInt8)buffer[63];
+                     int ppmb = ppmblo | (ppmbhi << 8);
+                     //fprintf(stderr,"ppmb \t%d\t%d\t%d\n",ppmblo,ppmbhi,ppmb);
+                     [PPMFeldB setIntValue:ppmb];
                   }break;
                      
-                     // end default
                      
+                  case 0xF4: // echo Fix Settings
+                  {
+                     /*
+                      bytebuffer[3] = changecode; // welcher kanal zu aendern
+                      bytebuffer[4] = modelindex; // welches modell
+
+                      */
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n+++ echo F4 fixadresse: %02X\terr_count: %d\n ",startadresse,buffer[3]);
+                     fprintf(stderr,"changecode: %02X\t modelindex: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
+                     fprintf(stderr,"\n");
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+
+                  }break;
+                     
+                     
+                  case 0xF5: // echo Read Settings
+                  {
+                     /*
+                       */
+                     
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n*** echo F5 Setting lesen readadresse: %02X\tmodelindex: %d\n ",startadresse,buffer[3]);
+                     
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"***\n");
+
+                     
+                     //fprintf(stderr,"byte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
+                     fprintf(stderr,"\n");
+                     
+                     NSMutableArray* memSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+                     int modelindex = buffer[3];
+                     for (int k=0;k<8;k++)
+                     {
+                        NSMutableDictionary* kanalDic = [[NSMutableDictionary alloc]initWithCapacity:0];
+                        [kanalDic setObject:[NSNumber numberWithInt:modelindex] forKey:@"modelnummer"];
+                        [kanalDic setObject:[NSString stringWithFormat:@"M %d",modelindex] forKey:@"model"];
+                        [kanalDic setObject:[NSNumber numberWithInt:0] forKey:@"go"];
+                        [kanalDic setObject:[NSNumber numberWithInt:0] forKey:@"state"];
+                        [kanalDic setObject:[NSNumber numberWithInt:k] forKey:@"nummer"];
+                        
+                        // Level
+                        int levelbyte = buffer[0x20 + k];
+                        [kanalDic setObject:[NSNumber numberWithInt:(levelbyte & 0x07)] forKey:@"levela"]; // bit 0-2
+                        [kanalDic setObject:[NSNumber numberWithInt:(levelbyte & 0x70)>>4] forKey:@"levelb"]; // bit 4-6
+                        
+                        // Expo
+                        int expobyte = buffer[0x28 + k];
+                        [kanalDic setObject:[NSNumber numberWithInt:(expobyte & 0x03)] forKey:@"expoa"];
+                        [kanalDic setObject:[NSNumber numberWithInt:(expobyte & 0x30)>>4] forKey:@"expob"];
+                        
+                        // Art
+                        [kanalDic setObject:[NSNumber numberWithInt:(expobyte & 0x0C)>>2] forKey:@"art"];
+                        
+                        // Richtung
+                        [kanalDic setObject:[NSNumber numberWithInt:(expobyte & 0x80)>>7] forKey:@"richtung"];
+                        [memSettingArray addObject:kanalDic];
+                     }
+                     //NSLog(@"memSettingArray 0: %@",[memSettingArray objectAtIndex:0]);
+                     //NSLog(@"memSettingArray 1: %@",[memSettingArray objectAtIndex:1]);
+                     //NSLog(@"memSettingArray 2: %@",[memSettingArray objectAtIndex:2]);
+                     //NSLog(@"memSettingArray 3: %@",[memSettingArray objectAtIndex:3]);
+                     
+                     [ModelArray replaceObjectAtIndex:modelindex withObject:memSettingArray];
+                     [memSettingArray release];
+                     [KanalTable reloadData];
+                     
+                     int readposition =0; // position im Buffer
+                     
+                     NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+                     for (int k=0;k<4;k++)
+                     {
+                        
+                        NSMutableDictionary* mixDic = [[NSMutableDictionary alloc]initWithCapacity:0];
+                        [mixDic setObject:[NSNumber numberWithInt:modelindex] forKey:@"modelnummer"];
+                        [mixDic setObject:[NSString stringWithFormat:@"M %d",modelindex] forKey:@"model"];
+                        [mixDic setObject:[NSNumber numberWithInt:0] forKey:@"go"];
+                        [mixDic setObject:[NSNumber numberWithInt:0] forKey:@"state"];
+                        [mixDic setObject:[NSNumber numberWithInt:k] forKey:@"mixnummer"];
+                        
+                        // Kanal
+                        int canalbyte = buffer[0x30 + readposition];
+                        //canalbyte = 0x88;
+                        int canala = canalbyte & 0x0F;
+                        int canalb = (canalbyte & 0xF0)>>4;
+                        NSLog(@"k: %d canala: %d canalb: %d",k,canala,canalb);
+                        [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x08)] forKey:@"canala"];
+                        [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x80)>>4] forKey:@"canalb"];
+                        readposition++;
+                        
+                        // Art
+                        int artbyte = buffer[0x30 + readposition];
+                        [mixDic setObject:[NSNumber numberWithInt:(artbyte & 0x07)] forKey:@"mixart"];
+                        //NSLog(@"k: %d canalbyte: %02X",k,canalbyte);
+                        //if (artbyte) // Einstellungen fuer Mixing vorhanden
+                        {
+                           //NSLog(@"load k: %d canalbyte: %02X",k,canalbyte);
+                           [memMixingArray addObject:mixDic];
+                        }
+                        readposition++;
+                     } // for k
+                     [MixingArray replaceObjectAtIndex:modelindex withObject:memMixingArray];
+                     [memMixingArray release];
+                     [MixingTable reloadData];
+                    
+                     
+                     // Ausgabe
+                     for (int k=32;k<USB_DATENBREITE;k++)
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+
+                  }break;
+                  
+                  case 0xF6: // echo Fix Mixing Byteschreiben
+                  {
+                     /*
+                      sendbuffer[1] = writeadresse & 0xFF;
+                      sendbuffer[2] = (writeadresse & 0xFF00)>>8;
+                      sendbuffer[3] = byte_errcount;
+                      sendbuffer[4] = eeprom_writedatabyte;
+                      sendbuffer[5] = checkbyte;
+                      sendbuffer[6] = w;
+                      sendbuffer[7] = 0x00;
+                      sendbuffer[8] = 0xF9;
+                      sendbuffer[9] = 0xFA;
+                      */
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n*** echo F6 Mixing byteschreiben writeadresse: %02X\terr_count: %d\n ",startadresse,buffer[3]);
+                     fprintf(stderr,"eeprom_writedatabyte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
+                     fprintf(stderr,"\n");
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                     
+                  }break;
+
+                  case 0xFA: // echo Fix Mixing main
+                  {
+                     /*
+                      sendbuffer[1] = writeadresse & 0xFF;
+                      sendbuffer[2] = (writeadresse & 0xFF00)>>8;
+                      sendbuffer[3] = byte_errcount;
+                      sendbuffer[4] = eeprom_writedatabyte;
+                      sendbuffer[5] = checkbyte;
+                      sendbuffer[6] = w;
+                      sendbuffer[7] = 0x00;
+                      sendbuffer[8] = 0xF9;
+                      sendbuffer[9] = 0xFA;
+                      */
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n*** echo FA Mixing main writeadresse hex: %02X\tint: %d\terr_count: %d\n ",startadresse,startadresse,buffer[3]);
+                     //fprintf(stderr,"eeprom_writedatabyte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
+                     //fprintf(stderr,"\n");
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                     
+                  }break;
+                   
+                     
+                  case 0xFB: // echo Fix Mixing Byteschreiben
+                  {
+                     /*
+                      sendbuffer[1] = writeadresse & 0xFF;
+                      sendbuffer[2] = (writeadresse & 0xFF00)>>8;
+                      sendbuffer[3] = byte_errcount;
+                      sendbuffer[4] = eeprom_writedatabyte;
+                      sendbuffer[5] = checkbyte;
+                      sendbuffer[6] = w;
+                      sendbuffer[7] = 0x00;
+                      sendbuffer[8] = 0xF9;
+                      sendbuffer[9] = 0xFA;
+                      */
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n*** echo FB Mixing byteschreiben writeadresse hex: %02X\tint: %d\terr_count: %d\n ",startadresse,startadresse,buffer[3]);
+                     //fprintf(stderr,"eeprom_writedatabyte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
+                     //fprintf(stderr,"\n");
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"*\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                     
+                  }break;
+
                }// switch code
                
                
@@ -1856,151 +2476,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             } // if code EEPROM_WRITE_TASK
             
          }break;
-   // ---------------------------------------------------- case TASKS Sammlung
-/*
-          default:
-         {
-            UInt8 code = (UInt8)buffer[0];
-            switch (code)
-           {
-
-               case 0xA3:
-              {
-                 fprintf(stderr,"echo A3: ");
-                 for (int i=0;i<8;i++)
-                 {
-                     fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                    //fprintf(stderr," | ");
-                 }
-                 fprintf(stderr,"\n");
-
-              }break;
-                 
-              case 0xC5: // write EEPROM Byte
-              {
-                 fprintf(stderr,"\necho C5 default write EEPROM Byte \n");
-                 
-                
-                  for (int i=0;i<12;i++)
-                  {
-                  UInt8 wertL = (UInt8)buffer[2*i];
-                  UInt8 wertH = ((UInt8)buffer[2*i+1]);
-                  int wert = wertL | (wertH<<8);
-                  //int wert = wertL + (wertH );
-                  //  fprintf(stderr,"%d\t%d\t%d\t",wertL,wertH,(wert));
-                  fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
-                  //fprintf(stderr," | ");
-                  }
-                  fprintf(stderr,"\n");
-                 
-                 for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
-                 {
-                    
-                    
-                    if (k==EE_PARTBREITE)
-                    {
-                       fprintf(stderr,"\n");
-                    }
-                    else if (k && k%(EE_PARTBREITE/2)==0)
-                    {
-                       fprintf(stderr,"*\t");
-                    }
-                    
-                    
-                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                    
-                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                    //fprintf(stderr,"%d\t",wert);
-                 }
-                 fprintf(stderr,"\n");
-                 usbtask = 0;
-              }break;
-
-                 
-
-              case 0xEC:
-              {
-                 
-                 fprintf(stderr,"* echo default EC nach laden: \n");
-                 
-                 for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
-                 {
-                    if (k==EE_PARTBREITE)
-                    {
-                       fprintf(stderr,"\n");
-                    }
-                    else if (k && k%(EE_PARTBREITE/2)==0)
-                    {
-                       fprintf(stderr,"*\t");
-                    }
-                    
-
-                    fprintf(stderr,"%02X\t",(uint8)buffer[k]);
-                    
-                    //int wert = (uint8)sendbuffer[k] | ((uint8)sendbuffer[k+1]<<8);
-                    //fprintf(stderr,"%d\t",wert);
-                 }
-                 
-                 
-                 fprintf(stderr,"\n\n");
-                 usbtask = 0;
-                 
-              }break;
-
-              
-              case 0xF0:
-              {
-                 int adc0L = (UInt8)buffer[18];// LO
-                 int adc0H = (UInt8)buffer[19];// HI
-                 int adc0 = adc0L | (adc0H<<8);
-                 
-                 //NSLog(@"adc0L: %d adc0H: %d adc0: %d",adc0L,adc0H,adc0);
-                 if (adc0L)
-                 {
-                    [ADC_DataFeld setIntValue:adc0];
-                    [ADC_Level setIntValue:adc0];
-                 }
-
-                 int pot0L = (UInt8)buffer[1];
-                 int pot0H = (UInt8)buffer[2];
-                 
-                 int pot0 = pot0L | (pot0H<<8);
-                 if (pot0L)
-                 {
-                    //NSLog(@"pot0L: %d pot0H: %d\n",pot0L,pot0H);
-                    //fprintf(stderr,"\t%d\t%d\t%d\n",pot0L,pot0H,pot0);
-                    [Pot0_Level setIntValue:pot0];
-                    [Pot0_Slider setIntValue:pot0];
-                    
-                    [Pot0_DataFeld setIntValue:pot0];
-                    //[Vertikalbalken setLevel:pot0/4096.0*255];
-                    [Vertikalbalken setLevel:(pot0-1000)/1000.0*255];
-                    
-                 }
-                 
-                 int pot1L = (UInt8)buffer[3];
-                 int pot1H = (UInt8)buffer[4];
-                 int pot1 = pot1L | (pot1H<<8);
-                 if (pot1L)
-                 {
-                    [Pot1_Level setIntValue:pot1];
-                    [Pot1_Slider setIntValue:pot1];
-                    [Pot1_DataFeld setIntValue:pot1];
-                 }
-                 if (pot0L && pot1L)
-                 {
-                    //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
-                 }
-
-              }break;
-                 
- 
-            } // switch code
-            
-  
-         } // case default
-   */         
-            
+             
       
       } // switch usbtask
       
@@ -2152,6 +2628,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
 }
 
+- (void)applicationDidFinishLaunching:(NSNotification*)notification
+{
+   [KanalTable setDataSource:self];
+}
+
+// MARK: awake
 
 /*" Invoked when the nib file including the window has been loaded. "*/
 - (void) awakeFromNib
@@ -2195,6 +2677,64 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		string[0]=h + 'A'; 
 	}
    
+   ModelArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+   
+   [KanalTable setDelegate:self];
+   
+   MixingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+
+   
+   [MixingTable setDelegate:self];
+   
+   [MixingTable setDataSource:self];
+   
+   for (int model=0;model<3;model++)
+   {
+       SettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+      for (int kanal=0;kanal<8;kanal++)
+      {
+         NSMutableDictionary* kanaldic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                           [NSNumber numberWithInt:kanal],@"nummer",
+                                           [NSNumber numberWithInt:0],@"art",
+                                           [NSNumber numberWithInt:0],@"richtung",
+                                           [NSNumber numberWithInt:2],@"levela",
+                                           [NSNumber numberWithInt:0],@"levelb",
+                                           [NSNumber numberWithInt:0],@"expoa",
+                                           [NSNumber numberWithInt:0],@"expob",
+                                           [NSNumber numberWithInt:0],@"mix",
+                                           [NSNumber numberWithInt:kanal],@"mixkanal",
+                                           [NSNumber numberWithInt:0],@"go",
+                                           [NSNumber numberWithInt:0],@"state",
+                                           [NSNumber numberWithInt:model],@"modelnummer",
+                                           [NSString stringWithFormat:@"M %d",model],@"model",
+                                           nil]retain];
+         [SettingArray addObject:kanaldic];
+      }
+      [ModelArray addObject:SettingArray];
+       
+      NSMutableArray* MixingSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+      for (int settingindex=0;settingindex<4;settingindex++)
+      {
+         NSMutableDictionary* mixingdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                            [NSNumber numberWithInt:settingindex],@"mixnummer",
+                                            [NSNumber numberWithInt:0x00],@"mixart",
+                                            [NSNumber numberWithInt:0x08],@"canala",
+                                            [NSNumber numberWithInt:0x08],@"canalb",
+                                            [NSString stringWithFormat:@"Mix %d",0],@"mixing",
+                                            nil]retain];
+         [MixingSettingArray addObject:mixingdic];
+      }
+      [MixingArray addObject:MixingSettingArray];
+      
+      [MixingTable reloadData];
+      [KanalTable reloadData];
+      
+   }
+  // NSLog(@"ModelArray 0 count: %d data: %@ ",(int)[[ModelArray objectAtIndex:0] count],[ModelArray objectAtIndex:0]);
+   
+   
+   
+   NSLog(@"SettingArray : %@",[SettingArray  description]);
    eepromwritestatus=0; // enthalt Bits fuer den Write-Status
    
    EEPROMposition = 0;
@@ -2211,16 +2751,19 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [self loadExpoDatenArray];
    int anzstufen=4;
    
+   
+   /*
+    EEDatenArray enthaelt anzstufen Arrays mit 2* Vektorsize Werten (lo, hi hintereinander) fuer die Stufe
+    */
+   
    EEDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
-   
-   DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
    for (int stufe=0;stufe<anzstufen;stufe++)
    {
       NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
       
-      fprintf(stderr,"stufe: %d\n",stufe);
+      //fprintf(stderr,"stufe: %d\n",stufe);
       int wert=0;
       
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
@@ -2252,19 +2795,19 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    
    // Werte ausgeben
-   /*
+   
    for (int stufe=0;stufe<anzstufen;stufe++)
    {
       NSArray* neuerDatenArray = [Math expoDatenArrayMitStufe:stufe];
       
-      fprintf(stderr,"stufe: %d\n",stufe);
+      //fprintf(stderr,"stufe: %d\n",stufe);
       int wert=0;
       
       for (int pos=0;pos<2*VEKTORSIZE-1;pos+=2)
       {
-         if (pos%32==0)
+         //       if (pos%32==0)
          {
-            fprintf(stderr,"\n");
+            //          fprintf(stderr,"\n");
          }
          
          if (pos%2 == 0)
@@ -2275,14 +2818,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             wert = hi;
             wert <<= 8;
             wert += lo;
-            fprintf(stderr,"\t%d",wert);
+            //      fprintf(stderr,"\t%d",wert);
          }
       }
-      fprintf(stderr,"\n\n");
+ //     fprintf(stderr,"\n\n");
    }
-*/
+   
+   DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
 
- 
    {
      
       int wert=0;
@@ -2292,7 +2835,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          
          if (pos%2 == 0)
          {
-            if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))
+  //          if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))
             {
  //              fprintf(stderr,"%d\t",pos/2);
                NSMutableArray* tempDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
@@ -2311,7 +2854,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   
                   //fprintf(stderr,"\t%d \t%d\t%d\t* \tw:\t %d *\t\n",pos/2,lo,hi,wert);
                  
-  //                  fprintf(stderr,"%d\t",wert);
+  //                fprintf(stderr,"%d\t",wert);
                   
                   //fprintf(stderr,"\t%d\t%d | ",lo,hi);
 
@@ -2326,15 +2869,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          }
       }
    }
-
-   
-
-   
    
 	NSImage* myImage = [NSImage imageNamed: @"USB"];
 	[NSApp setApplicationIconImage: myImage];
-	
-	
 	
 	NSString* SysVersion=SystemVersion();
 	NSArray* VersionArray=[SysVersion componentsSeparatedByString:@"."];
@@ -2378,11 +2915,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	
    // Einfuegen
    //	[self readPList];
-	
-	//[self showAVR:NULL];
-		//[AVR setProfilPlan:NULL];
-	//	[self showADWandler:NULL];	
-
    
    // End Einfuegen
    
@@ -2818,14 +3350,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          NSLog(@"Nicht beenden");
       }
    }
-   
 }
 
 
 - (void)BeendenAktion:(NSNotification*)note
 {
-NSLog(@"BeendenAktion");
-[self terminate:self];
+   NSLog(@"BeendenAktion");
+   [self terminate:self];
 }
 
 
@@ -2835,130 +3366,167 @@ NSLog(@"BeendenAktion");
 	NSLog(@"terminate: OK: %d",OK);
 	if (OK)
 	{
-      
 		[NSApp terminate:self];
-		
 	}
-	
-
-
 }
 
+// MARK: TableView
 
-- (NSDictionary*)datendic
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView
 {
-   // Array an USB schicken
-   NSNotificationCenter* nc=[NSNotificationCenter defaultCenter];
-   NSMutableDictionary* SchnittdatenDic=[[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
    
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"pwm"];
+   int tabindex = [aTableView tag]%100;
    
-   /*
-    2013-08-02 09:14:29.023 USB_Stepper[1560:303] USB_DatenArray 0: (
-    (
-    39,
-    1,
-    8,
-    1,
-    34,
-    0,
-    39,
-    0,
-    39,
-    1,
-    8,
-    1,
-    34,
-    0,
-    39,
-    0,
-    0,
-    1,
-    0,
-    0,
-    76,
-    1
-    ),
-    (
-    217,
-    0,
-    75,
-    0,
-    27,
-    0,
-    79,
-    0,
-    217,
-    0,
-    75,
-    0,
-    27,
-    0,
-    79,
-    0,
-    0,
-    0,
-    0,
-    1,
-    76,
-    1
-    ),
-    (
-    238,
-    0,
-    37,
-    0,
-    26,
-    0,
-    170,
-    0,
-    238,
-    0,
-    37,
-    0,
-    26,
-    0,
-    170,
-    0,
-    0,
-    2,
-    0,
-    2,
-    76,
-    1
-    )
-    )
-    
-    */
-   //NSMutableArray* USB_DatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-   for (int i=0;i<8;i++)
+   switch([aTableView tag]/100 )
    {
-      NSArray* temparray = [NSArray arrayWithObjects:[NSNumber numberWithInt:i],
-                            [NSNumber numberWithInt:2*i],
-                            [NSNumber numberWithInt:3*i],
-                            [NSNumber numberWithInt:4*i],
-                            [NSNumber numberWithInt:5*i],
-                            [NSNumber numberWithInt:6*i],
-                            [NSNumber numberWithInt:7*i],
-                            [NSNumber numberWithInt:8*i],
-                            [NSNumber numberWithInt:i],nil];
-      [USB_DatenArray addObject:temparray];
+      case 4:
+      {
+         return [[ModelArray objectAtIndex:tabindex] count];
+      }break;
+      case 5:
+      {
+         return [[MixingArray objectAtIndex:tabindex] count];
+      }break;
    }
-   
-   [SchnittdatenDic setObject:USB_DatenArray forKey:@"USB_DatenArray"];
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"cncposition"];
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"home"]; //
-   
-   
-   
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:0] forKey:@"art"]; //
-   NSLog(@"reportUSB_SendArray SchnittdatenDic: %@",[SchnittdatenDic description]);
-   
-   //   [nc postNotificationName:@"usbschnittdaten" object:self userInfo:SchnittdatenDic];
-   //NSLog(@"reportUSB_SendArray delayok: %d",delayok);
-   [SchnittdatenDic setObject:[NSNumber numberWithInt:1] forKey:@"delayok"];
-   
-   return (NSDictionary*)SchnittdatenDic;
+   return 0;
 }
+
+- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
+{
+   int tabindex = [aTableView tag]%100;
+   //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
+   switch((int)[aTableView tag]/100 )
+   {
+      case 4:
+      {
+         if (tabindex < [ModelArray count])
+         {
+            return [[[ModelArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
+         }
+      }break;
+      case 5:
+      {
+         //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
+         if (tabindex < [MixingArray count])
+         {
+            
+            return [[[MixingArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
+         }
+      }break;
+
+   }
+   return NULL;
+}
+
+- (void)tableView:(NSTableView *)aTableView
+   setObjectValue:(id)anObject
+   forTableColumn:(NSTableColumn *)aTableColumn
+              row:(NSInteger)rowIndex
+{
+   int tabindex = [aTableView tag]%100;
+   NSString* ident = [aTableColumn identifier];
+  // if (tabindex < [ModelArray count])
+	{
+      switch((int)[aTableView tag]/100 )
+      {
+         case 4:
+         {
+            //NSLog(@"ident: %@ einDic: %@",ident,[einDic description]);
+            
+            if ([ident isEqual: @"go"])
+            {
+               //if ([aTableView selectedRow] == rowIndex)
+               {
+                  //NSLog(@"go: rowIndex: %lu data: %d",(long)rowIndex,[[SettingArray objectAtIndex:rowIndex]intValue]);
+                  [[[ModelArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:@"state"];
+                  
+               }
+            }
+            
+            {
+               [[[ModelArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
+            }
+            //NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[SettingArray objectAtIndex:rowIndex]description]);
+            NSLog(@"SettingArray: %@",[[ModelArray objectAtIndex:tabindex] description]);
+            // NSArray* keyArray = [einDic allKeys];
+            
+            //[einDic setObject:anObject forKey:[aTableColumn identifier]];
+         }break;
+            
+         case 5:
+         {
+            NSLog(@"ident: %@ ",ident);
+            
+            if ([ident isEqual: @"go"])
+            {
+               //if ([aTableView selectedRow] == rowIndex)
+               {
+                  //NSLog(@"go: rowIndex: %lu data: %d",(long)rowIndex,[[SettingArray objectAtIndex:rowIndex]intValue]);
+                  [[[MixingArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:@"state"];
+                  
+               }
+            }
+            
+            {
+               [[[MixingArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
+            }
+            if ([ident isEqualToString:@"mixart"])
+            {
+               NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[[MixingArray objectAtIndex:tabindex] objectAtIndex:rowIndex]description]);
+            }
+               
+            //
+            //NSLog(@"SettingArray: %@",[SettingArray description]);
+            // NSArray* keyArray = [einDic allKeys];
+            
+            //[einDic setObject:anObject forKey:[aTableColumn identifier]];
+         }break;
+           
+            
+      } // switch
+	}
+   [aTableView reloadData];
+}
+
+- (void)tableView:(NSTableView *)aTableView willDisplayCell:(id)aCell forTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
+{
+   // aCell als id: aCell laesst setBackgroungColor nicht zu
+ //  if ([[aTableColumn identifier] isEqual: @"nummer"])
+   {
+      if (rowIndex %2==1)
+      {
+         //NSLog(@"rowIndex: %d",(int)rowIndex);
+         [aCell setBackgroundColor:[NSColor greenColor]];
+      }
+      else
+      {
+         [aCell setBackgroundColor:[NSColor whiteColor]];
+      }
+   }
+}
+
+- (void)tabView:(NSTabView *)aTabView didSelectTabViewItem:(NSTabViewItem*)aTabViewItem
+{
+   //NSLog(@"didSelectTabViewItem index: %d",(int)[aTabView indexOfTabViewItem:aTabViewItem]);
+   
+   int index = [aTabView indexOfTabViewItem:aTabViewItem];
+   //NSLog(@"subviews: %@",[[[aTabViewItem view]subviews]description]);
+   //NSLog(@"subviews tag: %d",[[[[aTabViewItem view]subviews]lastObject ]tag]);
+
+   if (index <[ModelArray count])
+   {
+      //[ModelFeld setStringValue:[[[ModelArray objectAtIndex:index]objectAtIndex:0]objectForKey:@"model"]];
+      [[[aTabViewItem view]viewWithTag:100+index] setStringValue:[[[ModelArray objectAtIndex:index]objectAtIndex:0]objectForKey:@"model"]];
+      
+   }
+   else
+   {
+      
+      [[[aTabViewItem view]viewWithTag:100+index] setStringValue:@"-"];
+   }
+}
+
+
+
 
 @end

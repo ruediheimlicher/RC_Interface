@@ -67,7 +67,7 @@
       if ((i % 64 ==0)|| (i==VEKTORSIZE-1))
       {
    //      fprintf(stderr,"%2d\t%2.2f\n",i,wert);
-         fprintf(stderr,"%d\t",intwert);
+   //      fprintf(stderr,"%d\t",intwert);
       }
       
       
@@ -77,7 +77,7 @@
   
    }
    //fprintf(stderr,"%d\t",intwertarray[VEKTORSIZE-1]);
-   fprintf(stderr,"Anzahl daten: %d\n",[datenarray count]);
+   //fprintf(stderr,"Anzahl daten: %d\n",(int)[datenarray count]);
 
    
    return datenarray;

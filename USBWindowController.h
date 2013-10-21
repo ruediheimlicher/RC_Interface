@@ -43,6 +43,22 @@
 #define EEPROM_WRITE_BUSY_BIT 0
 #define EEPROM_WRITE_OK_BIT   1
 
+#define TASK_OFFSET           0x2000 // Ort fuer Einstellungen
+
+
+#define SETTINGBREITE         0x100; // 256 byte Breite des Settingblocks fuer ein model
+
+#define MITTE_OFFSET          0x10 // 16, 16 byte (2 pro kanal)
+
+#define  LEVEL_OFFSET         0x20 // 32, 8 byte
+#define  EXPO_OFFSET          0x30 // 48, 8 byte
+
+#define MIX_OFFSET            0x40 // 64, 8 byte (2 pro mixing)
+
+#define MITTE_TASK            0x01 // Mitte lesen
+#define KANAL_TASK            0x02 // Level und Expo lesen
+#define MIX_TASK              0x03 // Mix lesen
+
 
  struct Abschnitt
  {
@@ -60,7 +76,7 @@
 // int rawhid_open(int max, int vid, int pid, int usage_page, int usage)
 // extern int rawhid_recv( );
 
-@interface USBWindowController : NSWindowController <NSApplicationDelegate>
+@interface USBWindowController : NSWindowController <NSApplicationDelegate, NSTableViewDataSource,NSTableViewDelegate, NSTabViewDelegate, NSComboBoxDataSource,NSComboBoxDelegate>
 {
     BOOL									isReading;
 	BOOL									isTracking;
@@ -90,20 +106,20 @@
    
    IBOutlet    NSTextField*			ADC_DataFeld;
    
-   IBOutlet    NSLevelIndicator*			ADC_Level;
+   IBOutlet    NSLevelIndicator*		ADC_Level;
    
-   IBOutlet    NSLevelIndicator*			Pot0_Level;
+   IBOutlet    NSLevelIndicator*		Pot0_Level;
    IBOutlet    NSSlider*            Pot0_Slider;
    IBOutlet    NSTextField*			Pot0_DataFeld;
    
-   IBOutlet    NSLevelIndicator*			Pot1_Level;
+   IBOutlet    NSLevelIndicator*		Pot1_Level;
    IBOutlet    NSSlider*            Pot1_Slider;
    IBOutlet    NSTextField*			Pot1_DataFeld;
 
    
    
-    NSData*								lastValueRead; /*" The last value read"*/
-    NSData*								lastDataRead; /*" The last value read"*/
+    NSData*                         lastValueRead; /*" The last value read"*/
+    NSData*                         lastDataRead; /*" The last value read"*/
 	 
 	rMath*                           Math;
     	
@@ -128,6 +144,10 @@
    
    IBOutlet id       Write_Stufe_Taste;
    IBOutlet id       StufeFeld;
+   IBOutlet id       PartnummerFeld;
+   
+    IBOutlet id       PPMFeldA;
+    IBOutlet id       PPMFeldB;
    
    NSTimer* EE_WriteTimer;
 	
@@ -151,6 +171,8 @@
   
    int               usbstatus; // was tun
    int               usbtask; // welche Task ist aktuell
+  
+   
    
    // RC
    
@@ -184,15 +206,28 @@
    IBOutlet id       EE_datalohex;
    IBOutlet id       EE_datahihex;
    
-   IBOutlet id       EE_taskmark;
+   IBOutlet id                EE_taskmark;
    
-   IBOutlet id       DatadiagrammFeld;
+   IBOutlet id                DatadiagrammFeld;
    
-   IBOutlet rDataDiagramm*   Datadiagramm;
-   rOrdinate*					DataOrdinate;
-   rDiagrammGitterlinien*	Gitterlinien;
+   IBOutlet rDataDiagramm*    Datadiagramm;
+   rOrdinate*                 DataOrdinate;
+   rDiagrammGitterlinien*     Gitterlinien;
 
-
+   
+   
+   // Einstellungen
+   NSMutableArray*   ModelArray;//
+   NSMutableArray*   SettingArray;//
+   IBOutlet id      SettingTab;
+   IBOutlet id      KanalTable;
+   IBOutlet id      ExpoTabel;
+   IBOutlet id      FixSettingTaste;
+   IBOutlet id      ModelFeld;
+   
+   NSMutableArray*   MixingArray;//
+   IBOutlet id      MixingTab;
+   IBOutlet id      MixingTable;
 }
 
 
@@ -219,6 +254,8 @@
 - (IBAction)reportRead_1_Byte:(id)sender;
 - (IBAction)reportRead_Part:(id)sender;
 
+- (IBAction)reportFix_KanalSettings:(id)sender;
+
 - (IBAction)reportHalt:(id)sender;
 
 - (void)sendTask:(int)status;
@@ -226,6 +263,26 @@
 - (void)USB_Aktion:(NSNotification*)note;
 
 - (void)send_EEPROMPartMitStufe:(int)stufe anAdresse:(int)startadresse;
+
+
+
+
+
+
+
+
+
+
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView;
+
+- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex;
+
+- (void)tableView:(NSTableView *)aTableView
+   setObjectValue:(id)anObject
+   forTableColumn:(NSTableColumn *)aTableColumn
+              row:(NSInteger)rowIndex;
+
+
 @end
 
 
