@@ -771,6 +771,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [Read_Part_Taste setEnabled:[sender state]];
    [Write_Part_Taste setEnabled:[sender state]];
    [Write_Stufe_Taste setEnabled:[sender state]];
+   [FixSettingTaste setEnabled:[sender state]];
+   [FixMixingTaste setEnabled:[sender state]];
+   [ReadSettingTaste setEnabled:[sender state]];
+
    
    [self sendTask:0xF6+code];
    
@@ -838,7 +842,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[4] = modelindex; // welches modell
    
    fprintf(stderr,"\nmodelindex: %d changecode: %d\n",modelindex,changecode);
-
+/*
    for (uint8_t kanal=0;kanal < 8;kanal++)
    {
       if (changecode & (1<<kanal))
@@ -848,7 +852,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
    }// for kanal
    fprintf(stderr,"*\n");
-   
+*/   
 /*
  art = 0;      Offset: 2   EXPO_OFFSET
  expoa = 0;    Offset: 0
@@ -888,7 +892,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       int richtung = [[kanalDic objectForKey:@"richtung"]intValue];
       expowert |= (richtung & 0x01) << 7; // Bit 7
-      NSLog(@"reportFix_KanalSettings kanal: %d expowert: %02X ",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
+      fprintf(stderr,"reportFix_KanalSettings kanal: %d expowert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
       
       uint8_t levelwert =0;
       int levela = [[kanalDic objectForKey:@"levela"]intValue];
@@ -897,7 +901,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       int levelb = [[kanalDic objectForKey:@"levelb"]intValue];
       //NSLog(@"expowertb: %d levelb: %d %d",levelwert,levelb, levelb & 0x07);
       levelwert |= (levelb & 0x07) <<4 ; // Bit 4,5,6
-      NSLog(@"reportFix_KanalSettings kanal: %d levelwert: %02X ",[[kanalDic objectForKey:@"nummer"]intValue],levelwert);
+      fprintf(stderr,"reportFix_KanalSettings kanal: %d levelwert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],levelwert);
             
       bytebuffer[datastartbyte + 2*kanal] = expowert;
       bytebuffer[datastartbyte + 2*kanal + 1] = levelwert;
@@ -924,6 +928,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    free(bytebuffer);
+   
 }
 
 - (IBAction)reportRead_Settings:(id)sender // 0xF5
@@ -2181,21 +2186,23 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
                      }
                      
-                     int ppmalo =  (UInt8)buffer[60];
-                     int ppmahi =  (UInt8)buffer[61];
+                     
+                     
+                     int ppmalo =  (UInt8)buffer[24];
+                     int ppmahi =  (UInt8)buffer[25];
                      int ppma = ppmalo | (ppmahi << 8);
-                     //fprintf(stderr,"ppma \t%d\t%d\t%d\n",ppmalo,ppmahi,ppma);
+                     //fprintf(stderr,"ppma \t%d\t%d\t%d\t",ppmalo,ppmahi,ppma);
                      [PPMFeldA setIntValue:ppma];
                      
  
-                     int ppmblo =  (UInt8)buffer[62];
-                     int ppmbhi =  (UInt8)buffer[63];
+                     int ppmblo =  (UInt8)buffer[26];
+                     int ppmbhi =  (UInt8)buffer[27];
                      int ppmb = ppmblo | (ppmbhi << 8);
                      //fprintf(stderr,"ppmb \t%d\t%d\t%d\n",ppmblo,ppmbhi,ppmb);
                      [PPMFeldB setIntValue:ppmb];
                   }break;
                      
-                     
+                 // MARK: F4 Fix Settings
                   case 0xF4: // echo Fix Settings
                   {
                      /*
@@ -2204,38 +2211,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
                       */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n+++ echo F4 fixadresse: %02X\terr_count: %d\n ",startadresse,buffer[3]);
+                     fprintf(stderr,"\n+++ echo F4 fixadresse hex: %02X\tdez: %d\t\terr_count: %d\n ",startadresse,startadresse,buffer[3]);
                      fprintf(stderr,"changecode: %02X\t modelindex: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
                      fprintf(stderr,"\n");
-                     for (int k=0;k<USB_DATENBREITE;k++)
-                        
-                     {
-                        
-                        if (k==EE_PARTBREITE)
-                        {
-                           fprintf(stderr,"\n");
-                        }
-                        else if (k && k%(EE_PARTBREITE/2)==0)
-                        {
-                           fprintf(stderr,"*\t");
-                        }
-                        
-                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
-                        //fprintf(stderr," | ");
-                     }
-                     fprintf(stderr,"\n");
-
-                  }break;
-                     
-                     
-                  case 0xF5: // echo Read Settings
-                  {
-                     /*
-                       */
-                     
-                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n*** echo F5 Setting lesen readadresse: %02X\tmodelindex: %d\n ",startadresse,buffer[3]);
-                     
+                     fprintf(stderr,"Eingang von LCD\n");
                      for (int k=0;k<USB_DATENBREITE;k++)
                         
                      {
@@ -2252,17 +2231,48 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         {
                            fprintf(stderr,"\t");
                         }
+
                         
                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
                         //fprintf(stderr," | ");
                      }
-                     fprintf(stderr,"***\n");
+                     fprintf(stderr,"\n");
 
+                  }break;
+                     
+                  // MARK: F5 Read Settings
+                  case 0xF5: // echo Read Settings
+                  {
+                     /*
+                       */
+                     
+                     int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
+                     fprintf(stderr,"\n*** echo F5 Setting lesen readadresse: %02X\tmodelindex: %d\n ",startadresse,buffer[3]);
+                     /*
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                     }
+                     fprintf(stderr,"***\n");
+                     */
                      
                      //fprintf(stderr,"byte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
-                     fprintf(stderr,"\n");
+                    // fprintf(stderr,"\n");
                      
-                     NSMutableArray* memSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+                     NSMutableArray* memSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      int modelindex = buffer[3];
                      for (int k=0;k<8;k++)
                      {
@@ -2296,12 +2306,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //NSLog(@"memSettingArray 3: %@",[memSettingArray objectAtIndex:3]);
                      
                      [ModelArray replaceObjectAtIndex:modelindex withObject:memSettingArray];
-                     [memSettingArray release];
+                     //[memSettingArray release];
                      [KanalTable reloadData];
                      
                      int readposition =0; // position im Buffer
                      
-                     NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+                     NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      for (int k=0;k<4;k++)
                      {
                         
@@ -2317,7 +2327,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //canalbyte = 0x88;
                         int canala = canalbyte & 0x0F;
                         int canalb = (canalbyte & 0xF0)>>4;
-                        NSLog(@"k: %d canala: %d canalb: %d",k,canala,canalb);
+                        //fprintf(stderr,"k: %d readposition: %d canala: %d canalb: %d\n",k,readposition,canala,canalb);
                         [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x08)] forKey:@"canala"];
                         [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x80)>>4] forKey:@"canalb"];
                         readposition++;
@@ -2334,20 +2344,26 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         readposition++;
                      } // for k
                      [MixingArray replaceObjectAtIndex:modelindex withObject:memMixingArray];
-                     [memMixingArray release];
+                     //[memMixingArray release];
                      [MixingTable reloadData];
                     
                      
                      // Ausgabe
+                     fprintf(stderr,"\nF5 Ausgabe von 32 an");
                      for (int k=32;k<USB_DATENBREITE;k++)
                      {
                         if (k==EE_PARTBREITE)
                         {
                            fprintf(stderr,"\n");
                         }
-                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        else if (k && k%(EE_PARTBREITE/2)==0)
                         {
                            fprintf(stderr,"\n");
+                        }
+
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\t");
                         }
                         
                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
@@ -3121,7 +3137,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    checksumme=0;
 
    [self startRead];
-   
+   [self reportHalt:NULL];
+   [self reportRead_Settings: NULL];
+
 }
 
 - (void) windowClosing:(NSNotification*)note
@@ -3455,7 +3473,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             
          case 5:
          {
-            NSLog(@"ident: %@ ",ident);
+            //NSLog(@"ident: %@ ",ident);
             
             if ([ident isEqual: @"go"])
             {

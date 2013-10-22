@@ -223,6 +223,8 @@
    IBOutlet id      KanalTable;
    IBOutlet id      ExpoTabel;
    IBOutlet id      FixSettingTaste;
+   IBOutlet id      FixMixingTaste;
+   IBOutlet id      ReadSettingTaste;
    IBOutlet id      ModelFeld;
    
    NSMutableArray*   MixingArray;//
