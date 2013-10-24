@@ -132,7 +132,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    }
    NSLog(@"start Timer");
-   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.1
+   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.2
                                                  target:self
                                                selector:@selector(read_USB:)
                                                userInfo:timerDic repeats:YES]retain];
@@ -163,7 +163,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    }
    
-   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.1
+   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.2
                                                  target:self
                                                selector:@selector(read_USB:)
                                                userInfo:timerDic repeats:YES]retain];
@@ -774,6 +774,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [FixSettingTaste setEnabled:[sender state]];
    [FixMixingTaste setEnabled:[sender state]];
    [ReadSettingTaste setEnabled:[sender state]];
+   [MasterRefreshTaste setEnabled:[sender state]];
 
    
    [self sendTask:0xF6+code];
@@ -837,11 +838,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          changecode |= (1<< kanal);
       }
    }
-   
    bytebuffer[3] = changecode; // welcher kanal zu aendern
    bytebuffer[4] = modelindex; // welches modell
    
-   fprintf(stderr,"\nmodelindex: %d changecode: %d\n",modelindex,changecode);
+   fprintf(stderr,"\nKanal modelindex: %d changecode: %d\n",modelindex,changecode);
 /*
    for (uint8_t kanal=0;kanal < 8;kanal++)
    {
@@ -853,7 +853,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    }// for kanal
    fprintf(stderr,"*\n");
 */   
-/*
+/* 
+ Aufbau:
  art = 0;      Offset: 2   EXPO_OFFSET
  expoa = 0;    Offset: 0
  expob = 2;    Offset: 4
@@ -878,7 +879,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    fprintf(stderr,"kanalsettings:\n");
    for (int kanal=0;kanal < [FixDatenArray count];kanal++)
    {
-      
+      // beteiligte Kanaele
       uint8_t expowert =0;
       NSDictionary* kanalDic = [FixDatenArray objectAtIndex:kanal];
       int expoa = [[kanalDic objectForKey:@"expoa"]intValue];
@@ -908,6 +909,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       fprintf(stderr,"\t%02X\t%02X *\n",expowert,levelwert);
          
    } // for kanal
+   
    fprintf(stderr,"\n");
    fprintf(stderr,"report FixSettings bytebuffer ready: \n");
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
@@ -928,6 +930,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    free(bytebuffer);
+   
+   [self reportRead_Settings:NULL];
    
 }
 
@@ -964,24 +968,23 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[2] = (Mix_Startadresse & 0xFF00)>>8;
    
    uint8_t changecode=0; // Bits fuer geaenderte Kanaele
-   bytebuffer[4] = modelindex; // welches modell
 
    fprintf(stderr,"\nreportFix_MixingSettings modelindex: %d  count: %d\n",modelindex,(int)[[MixingArray objectAtIndex:modelindex] count]);
 
    NSMutableArray * MixingDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-   //for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
-   for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
-   {
-      if ([[[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]objectForKey:@"go"]intValue])
-      {
-         [MixingDatenArray addObject:[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]];
-         changecode |= (1<< mixing);
-      }
-   }
+   
+    for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
+    {
+       if ([[[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]objectForKey:@"go"]intValue])
+       {
+          [MixingDatenArray addObject:[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]];
+          changecode |= (1<< mixing);
+       }
+    }
    bytebuffer[3] = changecode;
    bytebuffer[4] = modelindex; // welches modell
    
-   fprintf(stderr,"\nmodelindex: %d changecode: %d\n",modelindex,changecode);
+   fprintf(stderr,"\nMix modelindex: %d changecode: %d\n",modelindex,changecode);
    
    for (uint8_t kanal=0;kanal < 8;kanal++)
    {
@@ -1013,7 +1016,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSLog(@"reportFix_MixingSettings Data: %@ changecode: %d",MixingDatenArray, changecode);
 
    int datastartbyte = 16; // Beginn  der Settings auf dem buffer
-   fprintf(stderr,"kanalsettings:\n");
+   fprintf(stderr,"MixingSettings:\n");
    
    for (int mixing=0;mixing < [MixingDatenArray count];mixing++)
    {
@@ -1045,6 +1048,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       fprintf(stderr,"mixwert:\t%02X\tartwert:\t%02X *\n",mixwert,artwert);
       
    } // for mixing
+   
    fprintf(stderr,"\nreportFix_MixingSettings bytebuffer ready: \n");
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
    {
@@ -1064,7 +1068,22 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    free(bytebuffer);
+   
+   [self reportRead_Settings:NULL];
+}
 
+- (IBAction)reportRefresh_Master:(id)sender
+{
+   NSLog(@"reportRefresh_Master");
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+
+   uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
+   
+   bytebuffer[0] = 0xFC;
+   bytebuffer[4] = modelindex; // welches modell
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+
+   free(bytebuffer);
 }
 
 
@@ -2142,7 +2161,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   }break;
                      
                      
-                  case 0xF0:
+                  case 0xF0:// MARK: F0 Fix Settings
                   {
                      int adc0L = (UInt8)buffer[18];// LO
                      int adc0H = (UInt8)buffer[19];// HI
@@ -2188,18 +2207,53 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      
                      
-                     int ppmalo =  (UInt8)buffer[24];
-                     int ppmahi =  (UInt8)buffer[25];
+                     int ppmalo =  (UInt8)buffer[24]; //byte 16
+                     int ppmahi =  (UInt8)buffer[25]; //byte 17
                      int ppma = ppmalo | (ppmahi << 8);
                      //fprintf(stderr,"ppma \t%d\t%d\t%d\t",ppmalo,ppmahi,ppma);
                      [PPMFeldA setIntValue:ppma];
                      
  
-                     int ppmblo =  (UInt8)buffer[26];
-                     int ppmbhi =  (UInt8)buffer[27];
+                     int ppmblo =  (UInt8)buffer[26]; //byte 18
+                     int ppmbhi =  (UInt8)buffer[27]; //byte 19
                      int ppmb = ppmblo | (ppmbhi << 8);
                      //fprintf(stderr,"ppmb \t%d\t%d\t%d\n",ppmblo,ppmbhi,ppmb);
                      [PPMFeldB setIntValue:ppmb];
+                    // fprintf(stderr,"%d\t%d\n",ppma,ppmb);
+                     
+                     int canalwerta = (UInt8)buffer[28]|((UInt8)buffer[29]<<8);
+                     int canalwertb = (UInt8)buffer[30]|((UInt8)buffer[31]<<8);
+                     
+                     [Pot0_SliderInt setIntValue:ppma];
+                     [Pot1_SliderInt setIntValue:ppmb];
+                     
+                     //fprintf(stderr,"canalwerta:\t%d\tcanalwertb:\t%d\n",canalwerta,canalwertb);
+                     
+                     /*
+                     fprintf(stderr,"Eingang von LCD\n");
+                     for (int k=0;k<USB_DATENBREITE/2;k++)
+                        
+                     {
+                        
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\t");
+                        }
+                        
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+*/
                   }break;
                      
                  // MARK: F4 Fix Settings
@@ -2298,6 +2352,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                         // Richtung
                         [kanalDic setObject:[NSNumber numberWithInt:(expobyte & 0x80)>>7] forKey:@"richtung"];
+                        
                         [memSettingArray addObject:kanalDic];
                      }
                      //NSLog(@"memSettingArray 0: %@",[memSettingArray objectAtIndex:0]);
@@ -2311,6 +2366,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      int readposition =0; // position im Buffer
                      
+                     NSLog(@"MixingArray vor: %@",MixingArray);
+
                      NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      for (int k=0;k<4;k++)
                      {
@@ -2327,14 +2384,17 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //canalbyte = 0x88;
                         int canala = canalbyte & 0x0F;
                         int canalb = (canalbyte & 0xF0)>>4;
-                        //fprintf(stderr,"k: %d readposition: %d canala: %d canalb: %d\n",k,readposition,canala,canalb);
-                        [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x08)] forKey:@"canala"];
-                        [mixDic setObject:[NSNumber numberWithInt:(canalbyte & 0x80)>>4] forKey:@"canalb"];
+                        fprintf(stderr,"mixDic k: %d readposition: %d canalbyte: %02X canala: %d canalb: %d\n",k,readposition,canalbyte&0xFF,canala,canalb);
+                        [mixDic setObject:[NSNumber numberWithInt:canala] forKey:@"canala"];
+                        [mixDic setObject:[NSNumber numberWithInt:canalb] forKey:@"canalb"];
                         readposition++;
                         
                         // Art
                         int artbyte = buffer[0x30 + readposition];
-                        [mixDic setObject:[NSNumber numberWithInt:(artbyte & 0x07)] forKey:@"mixart"];
+                        int mixart = (artbyte & 0x07);
+                        [mixDic setObject:[NSNumber numberWithInt:mixart] forKey:@"mixart"];
+                        fprintf(stderr,"mixDic k: %d readposition: %d artbyte: %02X mixart: %d \n",k,readposition,artbyte,mixart);
+
                         //NSLog(@"k: %d canalbyte: %02X",k,canalbyte);
                         //if (artbyte) // Einstellungen fuer Mixing vorhanden
                         {
@@ -2343,7 +2403,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         }
                         readposition++;
                      } // for k
+                     NSLog(@"memMixingArray: %@",memMixingArray);
                      [MixingArray replaceObjectAtIndex:modelindex withObject:memMixingArray];
+                     NSLog(@"MixingArray nach: %@",MixingArray);
                      //[memMixingArray release];
                      [MixingTable reloadData];
                     
@@ -2447,7 +2509,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                   }break;
                    
-                     
+                  // MARK: FB Fix Mixings   
                   case 0xFB: // echo Fix Mixing Byteschreiben
                   {
                      /*
@@ -2462,7 +2524,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                       sendbuffer[9] = 0xFA;
                       */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n*** echo FB Mixing byteschreiben writeadresse hex: %02X\tint: %d\terr_count: %d\n ",startadresse,startadresse,buffer[3]);
+                     fprintf(stderr,"\n*** echo FB Mixing byteschreiben writeadresse hex: %02X\tint: %d\terr_count: %d databyte: %02X\n ",startadresse,startadresse,buffer[3],buffer[4]);
                      //fprintf(stderr,"eeprom_writedatabyte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
                      //fprintf(stderr,"\n");
                      for (int k=0;k<USB_DATENBREITE;k++)
@@ -2475,7 +2537,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         }
                         else if (k && k%(EE_PARTBREITE/2)==0)
                         {
-                           fprintf(stderr,"*\t");
+                           fprintf(stderr,"\t");
                         }
                         
                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
@@ -2483,6 +2545,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      }
                      fprintf(stderr,"\n");
                      
+                  }break;
+                     
+                  case 0xFC: // echo Refresh
+                  {
+                     fprintf(stderr,"\n*** echo FC Refresh ");
+
                   }break;
 
                }// switch code
@@ -2496,7 +2564,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       } // switch usbtask
       
-       
+      
      
       anzDaten++;
       
@@ -2663,7 +2731,17 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    // LinkedList
    first=NULL;
    
- // 
+ //
+   int mixcanal = 0x00;
+   
+   if (mixcanal ^ 0x88) // 88 bedeutet OFF
+   {
+      NSLog(@"mixcanal ist ok: %02X ",mixcanal);
+   }
+   else
+   {
+      NSLog(@"mixcanal ist OFF: %02X ",mixcanal);
+   }
 
 	
 	uint8_t zahl=244;
@@ -3137,8 +3215,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    checksumme=0;
 
    [self startRead];
-   [self reportHalt:NULL];
-   [self reportRead_Settings: NULL];
 
 }
 

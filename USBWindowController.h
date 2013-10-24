@@ -116,6 +116,9 @@
    IBOutlet    NSSlider*            Pot1_Slider;
    IBOutlet    NSTextField*			Pot1_DataFeld;
 
+   IBOutlet    NSSlider*            Pot0_SliderInt;
+   IBOutlet    NSSlider*            Pot1_SliderInt;
+
    
    
     NSData*                         lastValueRead; /*" The last value read"*/
@@ -227,6 +230,9 @@
    IBOutlet id      ReadSettingTaste;
    IBOutlet id      ModelFeld;
    
+   IBOutlet id      MasterRefreshTaste;
+
+   
    NSMutableArray*   MixingArray;//
    IBOutlet id      MixingTab;
    IBOutlet id      MixingTable;
@@ -257,6 +263,8 @@
 - (IBAction)reportRead_Part:(id)sender;
 
 - (IBAction)reportFix_KanalSettings:(id)sender;
+
+- (IBAction)reportRefresh_Master:(id)sender;
 
 - (IBAction)reportHalt:(id)sender;
 
