@@ -209,6 +209,8 @@
    IBOutlet id       EE_datalohex;
    IBOutlet id       EE_datahihex;
    
+   IBOutlet id       AdresseIncrement;
+   
    IBOutlet id                EE_taskmark;
    
    IBOutlet id                DatadiagrammFeld;

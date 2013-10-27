@@ -110,6 +110,18 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
 }
 
+- (IBAction)reportUSB:(id)sender
+{
+   if ([sender state])
+   {
+      [self startRead];
+      
+   }
+   else
+   {
+      [self stopRead];
+   }
+}
 
 - (IBAction)reportReadUSB:(id)sender;
 {
@@ -132,7 +144,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    }
    NSLog(@"start Timer");
-   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.2
+   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.1
                                                  target:self
                                                selector:@selector(read_USB:)
                                                userInfo:timerDic repeats:YES]retain];
@@ -163,15 +175,32 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    }
    
-   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.2
+   readTimer = [[NSTimer scheduledTimerWithTimeInterval:0.1
                                                  target:self
                                                selector:@selector(read_USB:)
                                                userInfo:timerDic repeats:YES]retain];
 
+   
 }
 
 
-- (IBAction)reportWriteTask:(id)sender;
+- (void)stopRead
+{
+   if (readTimer)
+   {
+      if ([readTimer isValid])
+      {
+         //NSLog(@"stopTimer timer inval");
+         [readTimer invalidate];
+         
+      }
+      [readTimer release];
+      readTimer = NULL;
+   }
+   
+}
+
+- (IBAction)reportWriteTask:(id)sender
 {
    
    int taskwahl = [[Taskwahl selectedCell]tag];
@@ -356,71 +385,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    NSLog(@"reportWrite_1_Byte erfolg: %d",senderfolg);
-   [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
-   [EE_DataFeld setIntValue:EE_Data+1];
+   if ([AdresseIncrement state])
+   {
+      [EE_StartadresseFeld setIntValue:EE_Startadresse+1];
+   }
+   
+ //  [EE_DataFeld setIntValue:EE_Data+1];
    free(bytebuffer);
 }
 
-
-- (IBAction)reportRead_1_Byte_Increment:(id)sender
-{
-
-   // D4
-   //NSLog(@"\n***");
-   NSLog(@"reportRead_1_Byte");
-   Dataposition = 0;
-   usbtask = EEPROM_READ_TASK;
-   [USB_DatenArray removeAllObjects];
-   // Request einrichten
-   NSMutableArray* codeArray = [[NSMutableArray alloc]initWithCapacity:USB_DATENBREITE];
-   [codeArray addObject:[NSString stringWithFormat:@"%d",0xD6]];
-   int EE_Startadresse = [EE_StartadresseFeld intValue];
-   uint8 lo = EE_Startadresse & 0x00FF;
-   uint8 hi = (EE_Startadresse & 0xFF00)>>8;
-   
-   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%X",lo]];
-   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%X",hi]];
-   
-   
-   fprintf(stderr,"Adresse: \t%d\t%d\n",lo,hi);
-   
-   
-   
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Startadresse
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Startadresse
-   
-   int EE_Data = [EE_DataFeld intValue];
-   
-   NSLog(@"reportWrite_1_EEPROM Data: %X",EE_Data);
-   lo = EE_Data & 0x00FF;
-   
-   hi = (EE_Data & 0xFF00)>>8;
-   
-   [EE_datahi setStringValue:[NSString stringWithFormat:@"%X",hi]];
-   [EE_datalo setStringValue:[NSString stringWithFormat:@"%X",lo]];
-   
-   
-   fprintf(stderr,"Data: \t%d\t%d\n",lo,hi);
-   
-   [codeArray addObject:[NSString stringWithFormat:@"%d",lo]]; // LO von Data
-   [codeArray addObject:[NSString stringWithFormat:@"%d",hi]]; // HI von Data
-   
-   [USB_DatenArray addObject:codeArray];
-   [self write_EEPROM];
-   [self USB_Aktion:NULL]; // Antwort lesen
-   
-   EE_Startadresse++;
-   [EE_StartadresseFeld setIntValue:EE_Startadresse];
-   lo = EE_Startadresse & 0x00FF;
-   hi = (EE_Startadresse & 0xFF00)>>8;
-   
-   [EE_startadresselo setStringValue:[NSString stringWithFormat:@"%02X",lo]];
-   [EE_startadressehi setStringValue:[NSString stringWithFormat:@"%02X",hi]];
-   
-   
-   //[self USB_Aktion:NULL]; // Antwort lesen
-   
-}
 
 - (IBAction)reportWrite_1_Line:(id)sender;
 {
@@ -764,6 +737,71 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 - (IBAction)reportHalt:(id)sender
 {
    NSLog(@"reportHalt state: %d",[sender state]);
+   
+   
+   
+   if ([sender state] && (![readTimer isValid]))
+   {
+      NSAlert *Warnung = [[[NSAlert alloc] init] autorelease];
+      [Warnung addButtonWithTitle:@"Read einschalten"];
+      [Warnung addButtonWithTitle:@"Abbrechen"];
+      //	[Warnung addButtonWithTitle:@""];
+      //[Warnung addButtonWithTitle:@"Abbrechen"];
+      [Warnung setMessageText:[NSString stringWithFormat:@"%@",@"Verbindung zum Master trennen"]];
+      
+      NSString* s1=@"USB Read ist nicht eingeschaltet.";
+      NSString* s2=@"";
+      NSString* InformationString=[NSString stringWithFormat:@"%@\n%@",s1,s2];
+      [Warnung setInformativeText:InformationString];
+      [Warnung setAlertStyle:NSWarningAlertStyle];
+      
+      int antwort=[Warnung runModal];
+      
+      // return;
+      // NSLog(@"antwort: %d",antwort);
+      switch (antwort)
+      {
+         case NSAlertFirstButtonReturn: // Einschalten
+         {
+            [self startRead];
+            //[read]
+            /*
+             int  r;
+             
+             r = rawhid_open(1, 0x16C0, 0x0480, 0xFFAB, 0x0200);
+             if (r <= 0)
+             {
+             NSLog(@"USBAktion: no rawhid device found");
+             [AVR setUSB_Device_Status:0];
+             return;
+             }
+             else
+             {
+             
+             NSLog(@"USBAktion: found rawhid device %d",usbstatus);
+             [AVR setUSB_Device_Status:1];
+             }
+             usbstatus=r;
+             */
+         }break;
+            
+         case NSAlertSecondButtonReturn: // Ignorieren
+         {
+            [sender setState:0];
+            return;
+            
+         }break;
+         
+            /*
+         case NSAlertThirdButtonReturn: // Abbrechen
+         {
+            return;
+         }break;
+             */
+      }
+      
+   }
+
 
    int code = ![sender state];
    [Read_1_Byte_Taste setEnabled:[sender state]];
@@ -2161,10 +2199,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   }break;
                      
                      
-                  case 0xF0:// MARK: F0 Fix Settings
+                  case 0xF0:// MARK: F0 Daten von Master
                   {
-                     int adc0L = (UInt8)buffer[18];// LO
-                     int adc0H = (UInt8)buffer[19];// HI
+                     int adc0L = (UInt8)buffer[0x3E];// LO
+                     int adc0H = (UInt8)buffer[0x3F];// HI
                      int adc0 = adc0L | (adc0H<<8);
                      
                      //NSLog(@"adc0L: %d adc0H: %d adc0: %d",adc0L,adc0H,adc0);
@@ -2187,6 +2225,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                         [Pot0_DataFeld setIntValue:pot0];
                         //[Vertikalbalken setLevel:pot0/4096.0*255];
+                        [Pot0_SliderInt setIntValue:pot0];
+                        
                         [Vertikalbalken setLevel:(pot0-1000)/1000.0*255];
                         
                      }
@@ -2199,13 +2239,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         [Pot1_Level setIntValue:pot1];
                         [Pot1_Slider setIntValue:pot1];
                         [Pot1_DataFeld setIntValue:pot1];
+                        [Pot1_SliderInt setIntValue:pot1];
+                        
                      }
                      if (pot0L && pot1L)
                      {
                         //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
                      }
                      
-                     
+                     /*
                      
                      int ppmalo =  (UInt8)buffer[24]; //byte 16
                      int ppmahi =  (UInt8)buffer[25]; //byte 17
@@ -2224,11 +2266,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      int canalwerta = (UInt8)buffer[28]|((UInt8)buffer[29]<<8);
                      int canalwertb = (UInt8)buffer[30]|((UInt8)buffer[31]<<8);
                      
-                     [Pot0_SliderInt setIntValue:ppma];
-                     [Pot1_SliderInt setIntValue:ppmb];
+                    // [Pot0_SliderInt setIntValue:ppma];
+                    // [Pot1_SliderInt setIntValue:ppmb];
                      
                      //fprintf(stderr,"canalwerta:\t%d\tcanalwertb:\t%d\n",canalwerta,canalwertb);
-                     
+                     */
                      /*
                      fprintf(stderr,"Eingang von LCD\n");
                      for (int k=0;k<USB_DATENBREITE/2;k++)
@@ -2828,7 +2870,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    
    
-   NSLog(@"SettingArray : %@",[SettingArray  description]);
+   //NSLog(@"SettingArray : %@",[SettingArray  description]);
    eepromwritestatus=0; // enthalt Bits fuer den Write-Status
    
    EEPROMposition = 0;
@@ -3042,7 +3084,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [Warnung addButtonWithTitle:@"Weiter"];
       //	[Warnung addButtonWithTitle:@""];
       //[Warnung addButtonWithTitle:@"Abbrechen"];
-      [Warnung setMessageText:[NSString stringWithFormat:@"%@",@"CNC-Programm starten"]];
+      [Warnung setMessageText:[NSString stringWithFormat:@"%@",@"RC-Programm starten"]];
       
       NSString* s1=@"USB ist noch nicht eingesteckt.";
       NSString* s2=@"";
@@ -3191,7 +3233,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    float faktorX = DataFeld.size.width/maxX;
    float faktorY = DataFeld.size.height/maxY;
-   NSLog(@"faktorX: %2.4f faktorY: %2.4f",faktorX,faktorY);
+   //NSLog(@"faktorX: %2.4f faktorY: %2.4f",faktorX,faktorY);
  
    NSDictionary* VorgabenDic = [NSDictionary dictionaryWithObjectsAndKeys:
                                 [NSNumber numberWithFloat:faktorX],@"faktorx",[NSNumber numberWithFloat:faktorY],@"faktory", [NSNumber numberWithFloat:faktorX],@"faktorx",nil];
@@ -3214,7 +3256,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    ChecksummenArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
    checksumme=0;
 
-   [self startRead];
+//   [self startRead];
 
 }
 
