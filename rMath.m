@@ -145,5 +145,80 @@
    return [NSArray arrayWithObjects:arrayLO,arrayHI, nil];
 }
 
+- (NSString*)BinStringFromInt:(int)dieZahl
+{
+	int pos=0;
+	int rest=0;
+	int zahl=dieZahl;
+	
+	NSString* BinString=[NSString string];
+	while (zahl)
+	{
+		rest=zahl%2;
+		if (rest)
+		{
+			BinString=[@"1" stringByAppendingString:BinString ];
+		}
+		else
+		{
+			BinString=[@"0"  stringByAppendingString:BinString];
+		}
+		zahl/=2;
+		if (pos==3)
+		{
+         BinString=[@" " stringByAppendingString:BinString];
+		}
+		pos++;
+		//NSLog(@"BinString: %@",BinString);
+	}
+	int i;
+	for (i=pos;i<8;i++) //String mit fuehrenden Nullen ergänzen
+	{
+      //NSLog(@"lpos: %d %@",pos,BinString);
+      if (i==4)
+		{
+         BinString=[@" " stringByAppendingString:BinString];
+        // NSLog(@"leerstelle: %@",BinString);
+		}
+
+		BinString=[@"0"  stringByAppendingString:BinString];
+	}
+	return BinString;
+}
+
+- (NSArray*)BinArrayFrom:(int)dieZahl
+{
+	int rest=0;
+	int zahl=dieZahl;
+	//NSLog(@"BinArray start: Zahl: %d",zahl);
+	NSMutableArray* BinArray=[[[NSMutableArray alloc]initWithCapacity:8]autorelease];
+	int anzStellen=0;
+	while (zahl)
+	{
+		
+		rest=zahl%2;
+		if (rest)
+		{
+			//NSLog(@"BinArray pos: %d Zahl: %d",anzStellen,1);
+			[BinArray addObject:@"1"];
+		}
+		else
+		{
+			//NSLog(@"BinArray pos: %d Zahl: %d",anzStellen,0);
+         
+			[BinArray addObject:@"0"];
+		}
+		zahl/=2;
+		anzStellen++;
+	}
+	//NSLog(@"BinArray: %@",[BinArray description]);
+	int i;
+	for (i=anzStellen;i<8;i++)
+	{
+      [BinArray addObject:@"0"];
+	}
+	return BinArray;
+}
+
 
 @end

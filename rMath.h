@@ -33,4 +33,7 @@ Array mit DataArrays von je 2 Vektoren von 32 byte laenge mit 16-bit-Wert
 
 - (NSArray*)expoArrayMitStufe:(int) stufe;
 - (NSArray*)expoDatenArrayMitStufe:(int)stufe;
+
+- (NSString*)BinStringFromInt:(int)dieZahl;
+- (NSArray*)BinArrayFrom:(int)dieZahl;
 @end

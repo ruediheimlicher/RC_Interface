@@ -16,6 +16,8 @@
 #import "rOrdinate.h"
 #import "rDiagrammGitterlinien.h"
 
+#import "rDefinitionen.h"
+
 #import "rMath.h"
 
 #import "hid.h"
@@ -208,6 +210,8 @@
    IBOutlet id       EE_datahi;
    IBOutlet id       EE_datalohex;
    IBOutlet id       EE_datahihex;
+   IBOutlet id       EE_databin;
+    IBOutlet id      EE_dataview;
    
    IBOutlet id       AdresseIncrement;
    
@@ -238,6 +242,9 @@
    NSMutableArray*   MixingArray;//
    IBOutlet id      MixingTab;
    IBOutlet id      MixingTable;
+   
+   
+   rDefinitionen* Definitionen;
 }
 
 

@@ -858,6 +858,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
    int Fix_Startadresse = TASK_OFFSET+ modelindex * SETTINGBREITE; //Speicherort fuer Kanal-Settings
+   
+   
    uint8 lo = Fix_Startadresse & 0x00FF;
    uint8 hi = (Fix_Startadresse & 0xFF00)>>8;
    bytebuffer[0] = 0xF4;
@@ -879,7 +881,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[3] = changecode; // welcher kanal zu aendern
    bytebuffer[4] = modelindex; // welches modell
    
-   fprintf(stderr,"\nKanal modelindex: %d changecode: %d\n",modelindex,changecode);
+   fprintf(stderr,"\nreportFix_KanalSettingsKanal\n fixstartadresse: %d hex: %02X\tmodelindex: %d changecode: %d\n",Fix_Startadresse,Fix_Startadresse,modelindex,changecode);
 /*
    for (uint8_t kanal=0;kanal < 8;kanal++)
    {
@@ -911,7 +913,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
  
  )
  */
-   NSLog(@"reportFix_KanalSettings Data: %@ changecode: %d",FixDatenArray, changecode);
+   NSLog(@"reportFix_KanalSettings Data: %@ changecode: %02X",FixDatenArray, changecode);
 
    int datastartbyte = 16; // Beginn  der Settings auf dem buffer
    fprintf(stderr,"kanalsettings:\n");
@@ -923,15 +925,26 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       int expoa = [[kanalDic objectForKey:@"expoa"]intValue];
       int expob = [[kanalDic objectForKey:@"expob"]intValue];
       
-      expowert |= expoa & 0x03; // Bit 0,1
-      expowert |= (expob & 0x03) << 4; // Bit 0,1
-
-      int art = [[kanalDic objectForKey:@"art"]intValue];
-      expowert |= (art & 0x03) << 2; // Bit 2,3
+      fprintf(stderr,"\nkanal: %d expoa: %02X expob: %02X\n",kanal,expoa,expob);
       
+      expowert |= expoa & 0x03; // Bit 0,1
+      fprintf(stderr,"expowert 1: %02X\n",expowert);
+
+      expowert |= ((expob & 0x03) << 4); // Bit 0,1
+      fprintf(stderr,"expowert 2: %02X\n",expowert);
+      
+      int art = [[kanalDic objectForKey:@"art"]intValue];
+      fprintf(stderr,"art: %02X\n",art);
+      
+      expowert |= ((art & 0x03) << 2); // Bit 2,3
+      fprintf(stderr,"expowert 3: %02X\n",expowert);
+     
       int richtung = [[kanalDic objectForKey:@"richtung"]intValue];
+      fprintf(stderr,"richtung: %02X\n",richtung);
+
+      
       expowert |= (richtung & 0x01) << 7; // Bit 7
-      fprintf(stderr,"reportFix_KanalSettings kanal: %d expowert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
+      fprintf(stderr,"\nreportFix_KanalSettings kanal: %d expowert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
       
       uint8_t levelwert =0;
       int levela = [[kanalDic objectForKey:@"levela"]intValue];
@@ -940,16 +953,18 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       int levelb = [[kanalDic objectForKey:@"levelb"]intValue];
       //NSLog(@"expowertb: %d levelb: %d %d",levelwert,levelb, levelb & 0x07);
       levelwert |= (levelb & 0x07) <<4 ; // Bit 4,5,6
-      fprintf(stderr,"reportFix_KanalSettings kanal: %d levelwert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],levelwert);
-            
+      
       bytebuffer[datastartbyte + 2*kanal] = expowert;
       bytebuffer[datastartbyte + 2*kanal + 1] = levelwert;
-      fprintf(stderr,"\t%02X\t%02X *\n",expowert,levelwert);
+      
+      fprintf(stderr,"reportFix_KanalSettings kanal: %d\t levelwert: %02X\texpowert:\t%02X\n",[[kanalDic objectForKey:@"nummer"]intValue],levelwert,expowert);
+
+      //fprintf(stderr,"expo: \t%02X\tlevel\t%02X *\n",expowert,levelwert);
          
    } // for kanal
    
    fprintf(stderr,"\n");
-   fprintf(stderr,"report FixSettings bytebuffer ready: \n");
+   fprintf(stderr,"report FixSettings Data F4 bytebuffer ready to send: \n");
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
    {
       if (pos%8 ==0)
@@ -969,9 +984,21 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    free(bytebuffer);
    
-   [self reportRead_Settings:NULL];
+   NSTimer* fixtimer = [[NSTimer scheduledTimerWithTimeInterval:1.0
+                                                     target:self
+                                                   selector:@selector(FixSettingsTimeraktion:)
+                                                   userInfo:NULL repeats:NO]retain];
+
+   
    
 }
+
+- (void)FixSettingsTimeraktion:(NSTimer*)timer
+{
+   [self  reportRead_Settings:NULL];
+   [timer release];
+}
+
 
 - (IBAction)reportRead_Settings:(id)sender // 0xF5
 {
@@ -2028,7 +2055,24 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
                      
                      [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
+                     /*
+                     NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
+                     //NSLog(@"binstring: %@",binstring );
+                     binstring = [[EE_databin stringValue]stringByAppendingFormat:@"%@\r",binstring];
                      
+                    [EE_databin setStringValue:binstring];
+                     */
+                     NSString* adressestring =[NSString stringWithFormat:@"%02X",readadresse];
+                     NSString* hexstring =[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0xFF];
+                     NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
+                     binstring =[NSString stringWithFormat:@"%@ \t%@\t%@\n",adressestring,hexstring,binstring];
+                     
+                     // http://stackoverflow.com/questions/15172971/append-to-nstextview-and-scroll
+                     NSAttributedString* attrstring = [[NSAttributedString alloc] initWithString:binstring];
+                     
+                     [[EE_dataview textStorage]appendAttributedString:attrstring];
+                     
+                     [EE_dataview scrollRangeToVisible:NSMakeRange([[EE_dataview string] length],0)];
                      
                      usbtask = 0;
                   }break;
@@ -2061,6 +2105,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
                      
+                     NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
+                     NSLog(@"binstring: %@",binstring );
                      
                      usbtask = 0;
                   }break;
@@ -2304,15 +2350,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      /*
                       bytebuffer[3] = changecode; // welcher kanal zu aendern
                       bytebuffer[4] = modelindex; // welches modell
-
                       */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n+++ echo F4 fixadresse hex: %02X\tdez: %d\t\terr_count: %d\n ",startadresse,startadresse,buffer[3]);
+                     fprintf(stderr,"\n+++ echo F4 fixadresse hex: %02X\tdez: %d\t\terr_count 0: %d\terr_count 1: %d\n ",startadresse,startadresse,buffer[3],buffer[8]);
                      fprintf(stderr,"changecode: %02X\t modelindex: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
                      fprintf(stderr,"\n");
-                     fprintf(stderr,"Eingang von LCD\n");
+                     fprintf(stderr,"levelwert: %02X\t expowert: %02X\t",(uint8)buffer[15],(uint8)buffer[16]);
+                     fprintf(stderr,"\n");
+                     fprintf(stderr,"F4 Eingang von LCD \n");
                      for (int k=0;k<USB_DATENBREITE;k++)
-                        
                      {
                         
                         if (k==EE_PARTBREITE)
@@ -2343,7 +2389,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                        */
                      
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n*** echo F5 Setting lesen readadresse: %02X\tmodelindex: %d\n ",startadresse,buffer[3]);
+                     fprintf(stderr,"\n*** echo F5 Setting lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,buffer[3]);
                      /*
                      for (int k=0;k<USB_DATENBREITE;k++)
                      {
@@ -2408,7 +2454,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      int readposition =0; // position im Buffer
                      
-                     NSLog(@"MixingArray vor: %@",MixingArray);
+                  //   NSLog(@"read_USB MixingArray vor: %@",[MixingArray objectAtIndex:0]);
 
                      NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      for (int k=0;k<4;k++)
@@ -2426,7 +2472,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //canalbyte = 0x88;
                         int canala = canalbyte & 0x0F;
                         int canalb = (canalbyte & 0xF0)>>4;
-                        fprintf(stderr,"mixDic k: %d readposition: %d canalbyte: %02X canala: %d canalb: %d\n",k,readposition,canalbyte&0xFF,canala,canalb);
+                    //    fprintf(stderr,"mixDic k: %d readposition: %d canalbyte: %02X canala: %d canalb: %d\n",k,readposition,canalbyte&0xFF,canala,canalb);
                         [mixDic setObject:[NSNumber numberWithInt:canala] forKey:@"canala"];
                         [mixDic setObject:[NSNumber numberWithInt:canalb] forKey:@"canalb"];
                         readposition++;
@@ -2435,7 +2481,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         int artbyte = buffer[0x30 + readposition];
                         int mixart = (artbyte & 0x07);
                         [mixDic setObject:[NSNumber numberWithInt:mixart] forKey:@"mixart"];
-                        fprintf(stderr,"mixDic k: %d readposition: %d artbyte: %02X mixart: %d \n",k,readposition,artbyte,mixart);
+                    //    fprintf(stderr,"mixDic k: %d readposition: %d artbyte: %02X mixart: %d \n",k,readposition,artbyte,mixart);
 
                         //NSLog(@"k: %d canalbyte: %02X",k,canalbyte);
                         //if (artbyte) // Einstellungen fuer Mixing vorhanden
@@ -2445,14 +2491,37 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         }
                         readposition++;
                      } // for k
-                     NSLog(@"memMixingArray: %@",memMixingArray);
+            //         NSLog(@"memMixingArray: %@",[memMixingArray objectAtIndex:0]);
                      [MixingArray replaceObjectAtIndex:modelindex withObject:memMixingArray];
-                     NSLog(@"MixingArray nach: %@",MixingArray);
+            //         NSLog(@"MixingArray nach: %@",[MixingArray objectAtIndex:0]);
                      //[memMixingArray release];
                      [MixingTable reloadData];
                     
                      
                      // Ausgabe
+                     fprintf(stderr,"\n");
+                     fprintf(stderr,"Level:\n");
+                     int offset = 0x20;
+                     for (int k=offset;k<(offset+8);k++)
+                     {
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                     }
+                     fprintf(stderr,"\n");
+                     fprintf(stderr,"Expo:\n");
+                     offset = 0x28;
+                     for (int k=offset;k<(offset+8);k++)
+                     {
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                     }
+                     fprintf(stderr,"\n");
+                     fprintf(stderr,"Mix:\n");
+                     offset = 0x30;
+                     for (int k=offset;k<(offset+8);k++)
+                     {
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                     }
+                    fprintf(stderr,"\n");
+                     
                      fprintf(stderr,"\nF5 Ausgabe von 32 an");
                      for (int k=32;k<USB_DATENBREITE;k++)
                      {
@@ -2566,7 +2635,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                       sendbuffer[9] = 0xFA;
                       */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n*** echo FB Mixing byteschreiben writeadresse hex: %02X\tint: %d\terr_count: %d databyte: %02X\n ",startadresse,startadresse,buffer[3],buffer[4]);
+                     fprintf(stderr,"\n*** echo FB Mixing byteschreiben writeadresse hex: %02X\tint: %d\terr_count: %d databyte: %02X\n ",startadresse,startadresse,buffer[3],(uint8_t)buffer[4]);
+                     fprintf(stderr,"changecode: %02X\n",(uint8_t)buffer[4]);
                      //fprintf(stderr,"eeprom_writedatabyte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
                      //fprintf(stderr,"\n");
                      for (int k=0;k<USB_DATENBREITE;k++)
@@ -2764,6 +2834,17 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 /*" Invoked when the nib file including the window has been loaded. "*/
 - (void) awakeFromNib
 {
+   // Experimente
+   int offset=3;
+   uint16_t tmp1 = (0xf7);//<<8;         // 8 bit nach oben zum voraus: Platz schaffen
+   uint16_t tmp2 =tmp1<<(8-offset);          // offset
+   uint8_t tmp3 = (tmp2&0xFF00)>>8; // obere 8 bit, 8 bit nach unten, ergibt lo
+   uint8_t tmp4 = (tmp2&0x00FF)>>4; // obere 8 bit, 4 bit nach unten, ergibt hi
+   
+   
+   fprintf(stderr,"%02X\t%02X\t%02X\t%02X\n",tmp1,tmp2,tmp3,tmp4);
+
+   
    
    uint8_t a=0;
    mausistdown=0;
@@ -2813,6 +2894,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		string[0]=h + 'A'; 
 	}
    
+   fprintf(stderr,"LCD\n");
+   
    ModelArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
    
    [KanalTable setDelegate:self];
@@ -2830,20 +2913,20 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       for (int kanal=0;kanal<8;kanal++)
       {
          NSMutableDictionary* kanaldic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                           [NSNumber numberWithInt:kanal],@"nummer",
-                                           [NSNumber numberWithInt:0],@"art",
-                                           [NSNumber numberWithInt:0],@"richtung",
-                                           [NSNumber numberWithInt:2],@"levela",
-                                           [NSNumber numberWithInt:0],@"levelb",
-                                           [NSNumber numberWithInt:0],@"expoa",
-                                           [NSNumber numberWithInt:0],@"expob",
+                                           [NSNumber numberWithInt:kanal],@"nummer", // 3 bit
+                                           [NSNumber numberWithInt:0],@"art",        // 2 bit
+                                           [NSNumber numberWithInt:0],@"richtung",   // 1 bit
+                                           [NSNumber numberWithInt:2],@"levela",    // 3 bit
+                                           [NSNumber numberWithInt:0],@"levelb",    // 3 bit
+                                           [NSNumber numberWithInt:0],@"expoa",     // 3 bit
+                                           [NSNumber numberWithInt:0],@"expob",     // 3 bit
                                            [NSNumber numberWithInt:0],@"mix",
-                                           [NSNumber numberWithInt:kanal],@"mixkanal",
+                                           [NSNumber numberWithInt:kanal],@"mixkanal", // 3 bit
                                            [NSNumber numberWithInt:0],@"go",
                                            [NSNumber numberWithInt:0],@"state",
-                                           [NSNumber numberWithInt:model],@"modelnummer",
+                                           [NSNumber numberWithInt:model],@"modelnummer", // 3 bit
                                            [NSString stringWithFormat:@"M %d",model],@"model",
-                                           nil]retain];
+                                           nil]retain]; // 27 bit
          [SettingArray addObject:kanaldic];
       }
       [ModelArray addObject:SettingArray];
@@ -2868,7 +2951,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    }
   // NSLog(@"ModelArray 0 count: %d data: %@ ",(int)[[ModelArray objectAtIndex:0] count],[ModelArray objectAtIndex:0]);
    
-   
+   [SettingTab selectTabViewItemAtIndex:0];
+    [[[[SettingTab selectedTabViewItem] view]viewWithTag:100]setStringValue: @"M 0"];
+
    
    //NSLog(@"SettingArray : %@",[SettingArray  description]);
    eepromwritestatus=0; // enthalt Bits fuer den Write-Status
@@ -3285,6 +3370,16 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 
+#pragma mark Defs
+
+- (IBAction)reportDefinitionen:(id)sender
+{
+   if (!Definitionen)
+   {
+      Definitionen = [[rDefinitionen alloc]initWithWindowNibName:@"Definitionen"];
+   }
+   [Definitionen showWindow:self];
+}
 
 
 
@@ -3583,7 +3678,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                [[[ModelArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
             }
             //NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[SettingArray objectAtIndex:rowIndex]description]);
-            NSLog(@"SettingArray: %@",[[ModelArray objectAtIndex:tabindex] description]);
+            //NSLog(@"SettingArray: %@",[[ModelArray objectAtIndex:tabindex] description]);
             // NSArray* keyArray = [einDic allKeys];
             
             //[einDic setObject:anObject forKey:[aTableColumn identifier]];
