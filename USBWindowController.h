@@ -274,7 +274,7 @@
 - (IBAction)reportFix_KanalSettings:(id)sender;
 
 - (IBAction)reportRefresh_Master:(id)sender;
-
+- (void)setHalt:(int)status;
 - (IBAction)reportHalt:(id)sender;
 
 - (void)sendTask:(int)status;

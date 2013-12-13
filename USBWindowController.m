@@ -736,11 +736,67 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportHalt:(id)sender
 {
-   NSLog(@"reportHalt state: %d",[sender state]);
-   
-   
-   
+   NSLog(@"reportHalt state: %ul",[sender state]);
+   [self setHalt:[sender state]];
+   return;
+   /*
    if ([sender state] && (![readTimer isValid]))
+   {
+      NSAlert *Warnung = [[[NSAlert alloc] init] autorelease];
+      [Warnung addButtonWithTitle:@"Read einschalten"];
+      [Warnung addButtonWithTitle:@"Abbrechen"];
+      //	[Warnung addButtonWithTitle:@""];
+      //[Warnung addButtonWithTitle:@"Abbrechen"];
+      [Warnung setMessageText:[NSString stringWithFormat:@"%@",@"Verbindung zum Master trennen"]];
+      
+      NSString* s1=@"USB Read ist nicht eingeschaltet.";
+      NSString* s2=@"";
+      NSString* InformationString=[NSString stringWithFormat:@"%@\n%@",s1,s2];
+      [Warnung setInformativeText:InformationString];
+      [Warnung setAlertStyle:NSWarningAlertStyle];
+      
+      int antwort=[Warnung runModal];
+      
+      // return;
+      // NSLog(@"antwort: %d",antwort);
+      switch (antwort)
+      {
+         case NSAlertFirstButtonReturn: // Einschalten
+         {
+            [self startRead];
+            //[read]
+         }break;
+            
+         case NSAlertSecondButtonReturn: // Ignorieren
+         {
+            [sender setState:0];
+            return;
+            
+         }break;
+       }
+      
+   }
+
+
+   int code = ![sender state];
+   [Read_1_Byte_Taste setEnabled:[sender state]];
+   [Write_1_Byte_Taste setEnabled:[sender state]];
+   [Read_Part_Taste setEnabled:[sender state]];
+   [Write_Part_Taste setEnabled:[sender state]];
+   [Write_Stufe_Taste setEnabled:[sender state]];
+   [FixSettingTaste setEnabled:[sender state]];
+   [FixMixingTaste setEnabled:[sender state]];
+   [ReadSettingTaste setEnabled:[sender state]];
+   [MasterRefreshTaste setEnabled:[sender state]];
+
+   
+   [self sendTask:0xF6+code];
+   */
+}
+
+- (void)setHalt:(int)status
+{
+   if (status && (![readTimer isValid]))
    {
       NSAlert *Warnung = [[[NSAlert alloc] init] autorelease];
       [Warnung addButtonWithTitle:@"Read einschalten"];
@@ -787,36 +843,36 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             
          case NSAlertSecondButtonReturn: // Ignorieren
          {
-            [sender setState:0];
+            [Halt_Taste setState:0];
             return;
             
          }break;
-         
+            
             /*
-         case NSAlertThirdButtonReturn: // Abbrechen
-         {
-            return;
-         }break;
+             case NSAlertThirdButtonReturn: // Abbrechen
+             {
+             return;
+             }break;
              */
       }
       
    }
-
-
-   int code = ![sender state];
-   [Read_1_Byte_Taste setEnabled:[sender state]];
-   [Write_1_Byte_Taste setEnabled:[sender state]];
-   [Read_Part_Taste setEnabled:[sender state]];
-   [Write_Part_Taste setEnabled:[sender state]];
-   [Write_Stufe_Taste setEnabled:[sender state]];
-   [FixSettingTaste setEnabled:[sender state]];
-   [FixMixingTaste setEnabled:[sender state]];
-   [ReadSettingTaste setEnabled:[sender state]];
-   [MasterRefreshTaste setEnabled:[sender state]];
-
+   int code = !status;
+   
+   [Halt_Taste setState:status];
+   [Read_1_Byte_Taste setEnabled:status];
+   [Write_1_Byte_Taste setEnabled:status];
+   [Read_Part_Taste setEnabled:status];
+   [Write_Part_Taste setEnabled:status];
+   [Write_Stufe_Taste setEnabled:status];
+   [FixSettingTaste setEnabled:status];
+   [FixMixingTaste setEnabled:status];
+   [ReadSettingTaste setEnabled:status];
+   [MasterRefreshTaste setEnabled:status];
+   
    
    [self sendTask:0xF6+code];
-   
+
 }
 
 
@@ -2141,7 +2197,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                            
                            int art= (data&0x0C)>>2;
                            
-                           NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
+                           //NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
                            datastring = [NSString stringWithFormat:@"\tea: %d\teb: %d\tart: %d\tdir: %d",expoa,expob,art,dir];
                         
                         }break;
@@ -2259,11 +2315,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      NSAttributedString * stringe =[[NSAttributedString alloc] initWithString: datastring];
                      [attrstring appendAttributedString: stringe];
                      
-
-                     
                      [attrstring appendAttributedString: CR];
-                     
-                     
                      
                      [[EE_dataview textStorage]appendAttributedString:attrstring];
                      
@@ -3550,6 +3602,38 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSSize    size = [container containerSize];
    size.width = 2000;
    [container setContainerSize: size];
+   
+   NSTimer* startTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0
+                                                 target:self
+                                               selector:@selector(startReadAktion:)
+                                               userInfo:NULL repeats:NO]retain];
+
+
+}
+
+
+- (void)startReadAktion:(NSTimer*)timer
+{
+   [timer invalidate];
+    [timer release];
+   NSLog(@"startReadAktion");
+   [self startRead];
+   NSTimer* haltTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0
+                                                           target:self
+                                                         selector:@selector(Read_SettingsAktion:)
+                                                         userInfo:NULL repeats:NO]retain];
+
+   [self setHalt:YES];
+//   [self reportRead_Settings:NULL];
+}
+
+- (void)Read_SettingsAktion:(NSTimer*)timer
+{
+   [timer invalidate];
+   [timer release];
+   NSLog(@"Read_SettingsAktion");
+   [self reportRead_Settings:NULL];
+
 
 }
 
@@ -3717,7 +3801,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	[nc postNotificationName:@"IOWarriorBeenden" object:self userInfo:BeendenDic];
 
 */
-	
+   if ([Halt_Taste state])
+   {
+      NSBeep();
+      [Halt_Taste performClick:NULL ];
+      return NO;
+   }
+
 	return YES;
 }
 
@@ -3769,7 +3859,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		return;
 	}
 	NSLog(@"Fenster Schliessen");
-		
+   
+   if ([Halt_Taste state])
+   {
+      NSBeep();
+      [Halt_Taste performClick:NULL ];
+      return NO;
+   }
+	
    if ([[[note object]title]length] && ![[[note object]title]isEqualToString:@"Print"]) // nicht bei Printdialog
    {
       schliessencounter++;
