@@ -1097,7 +1097,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       else
       {
          mixwert |= mixa & 0x07; // Bit 0-2
-         mixwert |= (mixb & 0x07) << 4; // Bit 0-2
+         mixwert |= (mixb & 0x07) << 4; // Bit 4-5
       }
      // mixwert = 0x88;
       fprintf(stderr,"mixa:\t%02X\tmixb:\t%02X\tmixwert:\t%02X *\t %d\n",mixa,mixb,mixwert,mixwert);
@@ -2033,9 +2033,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   }break;
                      
                      
-                  case 0xD5: // read Settings
+                  case 0xD5: // // MARK: D5 read Settings
                   {
                      int readadresse = (uint8_t)buffer[1] | ((uint8_t)buffer[2] <<8);
+                     
         //             fprintf(stderr,"echo read Settings Byte adresse hex:\t %02X\t  dec:\t %d\t",readadresse,readadresse);
                      
         //             fprintf(stderr,"Byte data hex:\t %02X\t  dec:\t %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
@@ -2065,10 +2066,204 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      NSString* adressestring =[NSString stringWithFormat:@"%02X",readadresse];
                      NSString* hexstring =[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0xFF];
                      NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
-                     binstring =[NSString stringWithFormat:@"%@ \t%@\t%@\n",adressestring,hexstring,binstring];
+                     NSString* kanalstring = [NSString string];
+                     NSString* datastring = [NSString string];
+                     int kanal =readadresse & 0x000F;
+                     int databytecode = readadresse & 0xFFF0;
+                     int data =(UInt8)buffer[3]&0x00FF;
+                     //NSLog(@"kanal: %d databytecode: %02X",databytecode,kanal);
+                     /*
+                      Aufbau:
+                      art = 0;      Offset: 2   EXPO_OFFSET
+                      expoa = 0;    Offset: 0
+                      expob = 2;    Offset: 4
+                      go = 1;
+                      kanal = 0;
+                      levela = 1;   Offset: 0   LEVEL_OFFSET
+                      levelb = 1;   Offset: 4
+                      
+                      nummer = 0;
+                      richtung = 0; Offset: 7   
+                      state = 1;
+                      
+                      (
+                      mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+                      mixcanals           Offset: 1 // wer mit welchem kanal
+                      
+                      )
+                      */
+
+                     switch (databytecode)
+                     {
+                        case 0x2020: //level
+                        {
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Lev\tkan\t%d",kanal];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\tkan\t%d",kanal];
+
+                           }
+                           
+                           int levela = data&0x0F;
+                           int levelb = (data&0xF0)>>4;
+                           
+                        datastring = [NSString stringWithFormat:@"\tla: %d\tlb: %d",levela,levelb];
+                        
+                        }break;
+                        case 0x2030: //expo
+                        {
+                           /*
+                            expoa:     Bit 0,1
+                            art:       Bit 2,3
+                            expob:     Bit 4,5
+                            Richtung:  Bit 7
+                            
+                            */
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Exp\tkanal\t%d",kanal];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\tkanal\t%d",kanal];
+                           }
+                           int dir=0;
+                           if (data & 0x80)
+                           {
+                              dir = 1;
+                           }
+                           
+                           int expoa= data&0x03;
+                           int expob= (data&0x30)>>4;
+                           
+                           int art= (data&0x0C)>>2;
+                           
+                           NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
+                           datastring = [NSString stringWithFormat:@"\tea: %d\teb: %d\tart: %d\tdir: %d",expoa,expob,art,dir];
+                        
+                        }break;
+
+                        case 0x2040: //mix
+                        {
+                           //mixwert |= mixa & 0x07; // Bit 0-2
+                           //mixwert |= (mixb & 0x07) << 4; // Bit 4-5
+
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Mix\t"];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\t"];
+                           }
+                           
+ 
+                           
+                           if (kanal % 2) // ungerade, typ
+                           {
+                              kanalstring = [NSString stringWithFormat:@"%@\t",kanalstring];
+                              int mixtyp = (data & 0x03);
+                              datastring = [NSString stringWithFormat:@"\ttyp\t%d",mixtyp];
+                           }
+                           else // gerade, kanalnummern
+                           {
+                              kanalstring = [NSString stringWithFormat:@"%@Mix\t%d",kanalstring,kanal/2];
+
+                              int mixa = data & 0x0F;
+                              int mixb = (data & 0xF0)>>4;
+                              
+                              datastring = [NSString stringWithFormat:@"\tkan\tka: %d\tkb: %d", mixa, mixb];
+                           }
+                           
+                           
+                           
+                        }break;
+                           
+                                        }
+                     // eventuell: http://www.mactech.com/articles/mactech/Vol.19/19.08/NSParagraphStyle/index.html
+                     float firstColumnInch = 1.75,
+                     otherColumnInch = 0.5, pntPerInch = 72.0;
+                      NSMutableArray * TabArray = [NSMutableArray arrayWithCapacity:0];
+                     NSTextTab *aTab;
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:30]; // kanal
+                     [TabArray addObject:aTab];
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:70]; // kan nr
+                     [TabArray addObject:aTab];
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:90];//adresse
+                     [TabArray addObject:aTab];
+
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:120];//data
+                     [TabArray addObject:aTab];
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:160];// bin
+                     [TabArray addObject:aTab];
+                     
+                     
+                     for(int i=1;i<8;i++)
+                     {
+                        aTab = [[NSTextTab alloc]
+                                initWithType:NSRightTabStopType
+                                location:180
+                                + ((float)i * 40)];
+                        [TabArray addObject:aTab];
+                        [aTab release]; // aTab was alloc'd and the array owns it now so release it
+                     }
+                    // NSLog(@"TabArray: %@",TabArray);
+                     // http://stackoverflow.com/questions/5005228/how-to-have-unlimited-tab-stops-in-a-",TabArray);-with-disabled-text-wrap
+                     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle defaultParagraphStyle] mutableCopy];
+                     
+                     [style setTabStops:TabArray];
+  
+                     //[EE_dataview setDefaultParagraphStyle:style];
+                     //[EE_dataview setTypingAttributes:[NSDictionary dictionaryWithObject:style forKey:NSParagraphStyleAttributeName]];
+                     //[style release];
+                     
+                     //binstring =[NSString stringWithFormat:@"%@ \t%@ \t%@\t%@\t%@\n",kanalstring,adressestring,hexstring,binstring,datastring];
                      
                      // http://stackoverflow.com/questions/15172971/append-to-nstextview-and-scroll
-                     NSAttributedString* attrstring = [[NSAttributedString alloc] initWithString:binstring];
+                     // https://discussions.apple.com/thread/915981
+                     
+                     NSMutableAttributedString * tab =[[NSMutableAttributedString alloc] initWithString: @"\t"];
+                     NSMutableAttributedString * CR =[[NSMutableAttributedString alloc] initWithString: @"\r"];
+
+                     NSMutableAttributedString* attrstring = [[NSMutableAttributedString alloc] initWithString:kanalstring];
+                     
+                     [attrstring addAttribute:NSParagraphStyleAttributeName value:style range:NSMakeRange(0, [attrstring length])];
+                     
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringa =[[NSAttributedString alloc] initWithString: adressestring];
+                     [attrstring appendAttributedString: stringa];
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringb =[[NSAttributedString alloc] initWithString: hexstring];
+                     [attrstring appendAttributedString: stringb];
+
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringd =[[NSAttributedString alloc] initWithString: binstring];
+                     [attrstring appendAttributedString: stringd];
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringe =[[NSAttributedString alloc] initWithString: datastring];
+                     [attrstring appendAttributedString: stringe];
+                     
+
+                     
+                     [attrstring appendAttributedString: CR];
+                     
+                     
                      
                      [[EE_dataview textStorage]appendAttributedString:attrstring];
                      
@@ -2844,6 +3039,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    fprintf(stderr,"%02X\t%02X\t%02X\t%02X\n",tmp1,tmp2,tmp3,tmp4);
 
+   int aaa = 0x8000;
+   fprintf(stderr, "aaa: %02X\n",aaa);
+   int bbb = (aaa & 0xF000);
+   fprintf(stderr, "bbb: %02X\n",bbb);
+   bbb>>=8;
+   fprintf(stderr, "bbb: %02X\n",bbb);
+   bbb >>=4;
+   fprintf(stderr, "bbb: %02X\n",bbb);
    
    
    uint8_t a=0;
@@ -2916,7 +3119,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                                            [NSNumber numberWithInt:kanal],@"nummer", // 3 bit
                                            [NSNumber numberWithInt:0],@"art",        // 2 bit
                                            [NSNumber numberWithInt:0],@"richtung",   // 1 bit
-                                           [NSNumber numberWithInt:2],@"levela",    // 3 bit
+                                           [NSNumber numberWithInt:0],@"levela",    // 3 bit
                                            [NSNumber numberWithInt:0],@"levelb",    // 3 bit
                                            [NSNumber numberWithInt:0],@"expoa",     // 3 bit
                                            [NSNumber numberWithInt:0],@"expob",     // 3 bit
@@ -3342,6 +3545,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    checksumme=0;
 
 //   [self startRead];
+   NSTextContainer *  container = [EE_dataview textContainer];
+   [container setWidthTracksTextView: NO];
+   NSSize    size = [container containerSize];
+   size.width = 2000;
+   [container setContainerSize: size];
 
 }
 
