@@ -2494,6 +2494,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                   case 0xF0:// MARK: F0 Daten von Master
                   {
+                     
+                     
+                     
                      int adc0L = (UInt8)buffer[0x3E];// LO
                      int adc0H = (UInt8)buffer[0x3F];// HI
                      int adc0 = adc0L | (adc0H<<8);
@@ -2504,6 +2507,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         [ADC_DataFeld setIntValue:adc0];
                         [ADC_Level setIntValue:adc0];
                      }
+                     
+                     
                      
                      int pot0L = (UInt8)buffer[1];
                      int pot0H = (UInt8)buffer[2];
@@ -2539,6 +2544,22 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      {
                         //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
                      }
+                     
+                     //for (int k=0;k<5;k++)
+                     {
+                        //NSLog(@"dataL: %d dataH: %d dataL: %d dataH: %d",(UInt8)buffer[20],(UInt8)buffer[21],(UInt8)buffer[18],(UInt8)buffer[19]);
+                     }
+                     int potxL = (UInt8)buffer[20];
+                     int potxH = (UInt8)buffer[21];
+                     
+                     int potx = potxL | (potxH<<8);
+                     [PPMFeldA setIntValue:potx];
+                     
+                     int potyL = (UInt8)buffer[18];
+                     int potyH = (UInt8)buffer[19];
+                     
+                     int poty = potyL | (potyH<<8);
+                     [PPMFeldB setIntValue:poty];
                      
                      /*
                      
