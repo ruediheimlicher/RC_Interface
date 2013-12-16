@@ -1058,6 +1058,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (IBAction)reportRead_Settings:(id)sender // 0xF5
 {
+   [readsetting_mark setBackgroundColor:[NSColor redColor]];
    int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
    uint8_t*      bytebuffer;
    bytebuffer=malloc(USB_DATENBREITE);
@@ -1196,6 +1197,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 - (IBAction)reportRefresh_Master:(id)sender
 {
    NSLog(@"reportRefresh_Master");
+   [refreshmaster_mark setBackgroundColor:[NSColor redColor]];
    int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
 
    uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
@@ -2560,7 +2562,15 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      int poty = potyL | (potyH<<8);
                      [PPMFeldB setIntValue:poty];
+                     //NSLog(@"testdata");
                      
+                     // Daten ausgeben
+                     //for (int k=0;k<8;k++)
+                     {
+                       // fprintf(stderr,"%02X\t",(UInt8)buffer[EE_PARTBREITE+k]);
+                     }
+                     //fprintf(stderr,"\n");
+                     //NSLog(@"testdata data0: %02X data1: %02X data2: %02X data3: %02X",(UInt8)buffer[EE_PARTBREITE],(UInt8)buffer[EE_PARTBREITE+1],(UInt8)buffer[EE_PARTBREITE+2],(UInt8)buffer[EE_PARTBREITE+3]);
                      /*
                      
                      int ppmalo =  (UInt8)buffer[24]; //byte 16
@@ -2811,6 +2821,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //fprintf(stderr," | ");
                      }
                      fprintf(stderr,"\n");
+                     
+                     // Master refresh
+                     [readsetting_mark setBackgroundColor:[NSColor greenColor]];
+                     [self reportRefresh_Master:NULL];
 
                   }break;
                   
@@ -2930,7 +2944,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   case 0xFC: // echo Refresh
                   {
                      fprintf(stderr,"\n*** echo FC Refresh ");
-
+                     [refreshmaster_mark setBackgroundColor:[NSColor greenColor]];
+                     NSBeep();
                   }break;
 
                }// switch code
@@ -3109,8 +3124,18 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    uint8_t tmp3 = (tmp2&0xFF00)>>8; // obere 8 bit, 8 bit nach unten, ergibt lo
    uint8_t tmp4 = (tmp2&0x00FF)>>4; // obere 8 bit, 4 bit nach unten, ergibt hi
    
+   uint8_t ri = tmp1 & 0x80;
+   fprintf(stderr,"%d\n",ri);
+   ri >>= 7;
+   fprintf(stderr,"%d\n",ri);
    
-   fprintf(stderr,"%02X\t%02X\t%02X\t%02X\n",tmp1,tmp2,tmp3,tmp4);
+   int16_t rii = 247;
+   fprintf(stderr,"rii: %d\n",rii);
+   rii *= (-1);
+   fprintf(stderr,"rii: %d\n",rii);
+   
+   
+  // fprintf(stderr,"%02X\t%02X\t%02X\t%02X\n",tmp1,tmp2,tmp3,tmp4);
 
    int aaa = 0x8000;
    fprintf(stderr, "aaa: %02X\n",aaa);
@@ -3654,9 +3679,24 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [timer release];
    NSLog(@"Read_SettingsAktion");
    [self reportRead_Settings:NULL];
-
-
+   
+   // refresh in F5 veranlasst
+   /*
+   NSTimer* haltTimer = [[NSTimer scheduledTimerWithTimeInterval:5.0
+                                                          target:self
+                                                        selector:@selector(Refresh_MasterAktion:)
+                                                        userInfo:NULL repeats:NO]retain];
+*/
 }
+
+- (void)Refresh_MasterAktion:(NSTimer*)timer
+{
+   [timer invalidate];
+   [timer release];
+   NSLog(@"Refresh_MasterAktion");
+   [self reportRefresh_Master:NULL];
+}
+
 
 - (void) windowClosing:(NSNotification*)note
 {

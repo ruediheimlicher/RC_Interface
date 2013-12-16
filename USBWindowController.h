@@ -212,6 +212,11 @@
    IBOutlet id       EE_datahihex;
    IBOutlet id       EE_databin;
     IBOutlet id      EE_dataview;
+    IBOutlet id      PPM_testdatafeld;
+   
+   IBOutlet id      readsetting_mark;
+   IBOutlet id      refreshmaster_mark;
+
    
    IBOutlet id       AdresseIncrement;
    
@@ -245,6 +250,9 @@
    
    
    rDefinitionen* Definitionen;
+   
+   
+  
 }
 
 
