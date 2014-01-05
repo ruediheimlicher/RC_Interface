@@ -2753,7 +2753,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                         [memSettingArray addObject:kanalDic];
                      }
-                     NSLog(@"memSettingArray 0: %@",[memSettingArray objectAtIndex:0]);
+                     //NSLog(@"memSettingArray 0: %@",[memSettingArray objectAtIndex:0]);
                      //NSLog(@"memSettingArray 1: %@",[memSettingArray objectAtIndex:1]);
                      //NSLog(@"memSettingArray 2: %@",[memSettingArray objectAtIndex:2]);
                      //NSLog(@"memSettingArray 3: %@",[memSettingArray objectAtIndex:3]);
