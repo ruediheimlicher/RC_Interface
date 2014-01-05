@@ -55,7 +55,13 @@
 #define  LEVEL_OFFSET         0x20 // 32, 8 byte
 #define  EXPO_OFFSET          0x30 // 48, 8 byte
 
+
 #define MIX_OFFSET            0x40 // 64, 8 byte (2 pro mixing)
+
+#define FUNKTION_OFFSET    0x60 // 96
+#define DEVICE_OFFSET      0x70 // 122
+#define AUSGANG_OFFSET     0x80 // 128
+
 
 #define MITTE_TASK            0x01 // Mitte lesen
 #define KANAL_TASK            0x02 // Level und Expo lesen
@@ -176,9 +182,7 @@
   
    int               usbstatus; // was tun
    int               usbtask; // welche Task ist aktuell
-  
-   
-   
+    
    // RC
    
    NSMutableArray*   ExpoDatenArray;     // Daten fuer EEPROM mit exponentialkurven, Werte in zwei Arrays lo, hi
@@ -211,10 +215,11 @@
    IBOutlet id       EE_datalohex;
    IBOutlet id       EE_datahihex;
    IBOutlet id       EE_databin;
-    IBOutlet id      EE_dataview;
-    IBOutlet id      PPM_testdatafeld;
+   IBOutlet id      EE_dataview;
+   IBOutlet id      PPM_testdatafeld;
    
    IBOutlet id      readsetting_mark;
+   IBOutlet id      readsender_mark;
    IBOutlet id      refreshmaster_mark;
 
    
@@ -228,6 +233,24 @@
    rOrdinate*                 DataOrdinate;
    rDiagrammGitterlinien*     Gitterlinien;
 
+   /*
+    // Funktion
+    
+    const char funktion0[] PROGMEM = "Seite \0";
+    const char funktion1[] PROGMEM = "Hoehe \0";
+    const char funktion2[] PROGMEM = "Quer   \0";
+    const char funktion3[] PROGMEM = "Motor \0";
+    const char funktion4[] PROGMEM = "Quer L\0";
+    const char funktion5[] PROGMEM = "Quer R\0";
+    const char funktion6[] PROGMEM = "Lande \0";
+    const char funktion7[] PROGMEM = "Aux    \0";
+
+    */
+   
+   NSArray*   default_FunktionArray;//
+   NSArray*   default_DeviceArray;//
+   NSArray*   default_AusgangArray;//
+   
    
    
    // Einstellungen
@@ -239,7 +262,9 @@
    IBOutlet id      FixSettingTaste;
    IBOutlet id      FixMixingTaste;
    IBOutlet id      ReadSettingTaste;
+   IBOutlet id      ReadSenderTaste;
    IBOutlet id      ModelFeld;
+   IBOutlet id      SetFeld;
    
    IBOutlet id      MasterRefreshTaste;
 
@@ -247,6 +272,18 @@
    NSMutableArray*   MixingArray;//
    IBOutlet id      MixingTab;
    IBOutlet id      MixingTable;
+
+   NSMutableArray*   DispatchArray;//
+   IBOutlet id      DispatchTab;
+   IBOutlet id      DispatchTable;
+
+   NSMutableArray*   FunktionArray;//
+   IBOutlet id      FunktionTab;
+   IBOutlet id      FunktionTable;
+   
+   NSMutableArray*   AusgangArray;//
+   IBOutlet id      AusgangTab;
+   IBOutlet id      AusgangTable;
    
    
    rDefinitionen* Definitionen;
