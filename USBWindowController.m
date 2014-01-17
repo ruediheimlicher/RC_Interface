@@ -1068,8 +1068,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[1] = TASK_OFFSET & 0x00FF;
    bytebuffer[2] = (TASK_OFFSET & 0xFF00)>>8;
    bytebuffer[3] = modelindex;
+   bytebuffer[4] = 1;// verbose Level
+   bytebuffer[5] = 1;// verbose Expo
+   bytebuffer[6] = 1;// verbose Mix
    
-    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
    NSLog(@"reportRead_Settings erfolg: %d",senderfolg);
    free(bytebuffer);
@@ -2762,7 +2765,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //[memSettingArray release];
                      [KanalTable reloadData];
                      
-                     /* 140105 Auskommentiert, verursachte Crash beim FixSettings. Warum hier aufgerufen???
+                      //140105 Auskommentiert, verursachte Crash beim FixSettings. Warum hier aufgerufen???
                      int readposition =0; // position im Buffer
                      
                      NSLog(@"read_USB MixingArray vor: %@",[MixingArray objectAtIndex:0]);
@@ -2810,7 +2813,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      NSLog(@"MixingArray nach: %@",[MixingArray objectAtIndex:0]);
                      //[memMixingArray release];
                      [MixingTable reloadData];
-                    */
+                    
                      
                      // Ausgabe
                      fprintf(stderr,"\n");
@@ -3367,10 +3370,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          [MixingSettingArray addObject:mixingdic];
          [mixingdic release];
       }
+      [[MixingSettingArray objectAtIndex:0]setObject:[NSNumber numberWithInt:0x01] forKey:@"mixart"];
+      [[MixingSettingArray objectAtIndex:1]setObject:[NSNumber numberWithInt:0x02] forKey:@"mixart"];
       [MixingArray addObject:MixingSettingArray];
       [MixingSettingArray release];
       [MixingTable reloadData];
-
+/*
       // Dispatch
       DispatchArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
       [DispatchTable setDelegate:self];
@@ -3395,7 +3400,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [DispatchSettingArray release];
       [DispatchTable reloadData];
       // end Dispatch
-
+*/
       // Funktion tag 700
       /*
       const char funktion0[] PROGMEM = "Seite \0";
@@ -3407,7 +3412,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       const char funktion6[] PROGMEM = "Lande \0";
       const char funktion7[] PROGMEM = "Aux    \0";
        */
-
+/*
       default_DeviceArray = [NSArray arrayWithObjects:@"L_H",@"L_V",@"R_H",@"R_V",@"S_L",@"S_R",@"Sch",@"-", nil];
       default_FunktionArray = [NSArray arrayWithObjects:@"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux", nil];
       FunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
@@ -3440,7 +3445,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [FunktionSettingArray release];
       [FunktionTable reloadData];
       // end Dispatch
-
+*/
    
    }
   // NSLog(@"ModelArray 0 count: %d data: %@ ",(int)[[ModelArray objectAtIndex:0] count],[ModelArray objectAtIndex:0]);
@@ -3847,6 +3852,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [container setContainerSize: size];
    if (usbstatus)
    {
+      
    NSTimer* startTimer = [[NSTimer scheduledTimerWithTimeInterval:1.0
                                                  target:self
                                                selector:@selector(startReadAktion:)
