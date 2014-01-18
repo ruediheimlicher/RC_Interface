@@ -2258,8 +2258,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                            {
                               kanalstring = [NSString stringWithFormat:@"%@Mix\t%d",kanalstring,kanal/2];
 
-                              int mixa = data & 0x07;
-                              int mixb = (data & 0x70)>>4;
+                              int mixa = data & 0x0F;
+                              int mixb = (data & 0xF0)>>4;
+                              //int mixa = data & 0x07;
+                              //int mixb = (data & 0x70)>>4;
                               
                               datastring = [NSString stringWithFormat:@"\tkan\tka: %d\tkb: %d", mixa, mixb];
                               NSLog(@"kanal gerade: %d data: %02X mixa: %02X mixb: %02X datastring: %@",kanal,data,mixa,mixb,datastring);
