@@ -877,7 +877,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 
-
 - (void)sendTask:(int)task
 {
    NSLog(@"sendTask: task: %X",task);
@@ -901,10 +900,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    NSLog(@"sendTask erfolg: %d ",senderfolg);
 
-   
-
    free(taskbuffer);
-
 }
 
 - (IBAction)reportFix_KanalSettings:(id)sender // 0xF4
@@ -1106,7 +1102,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
    
    NSLog(@"\nreportFix_MixingSettings: modelindex: %d Settings: %@",modelindex,[[MixingArray objectAtIndex:modelindex] description]);
-      
+   
    uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
    int Mix_Startadresse = TASK_OFFSET + MIX_OFFSET;
    uint8 lo = Mix_Startadresse & 0x00FF;
@@ -1116,19 +1112,19 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[2] = (Mix_Startadresse & 0xFF00)>>8;
    
    uint8_t changecode=0; // Bits fuer geaenderte Kanaele
-
+   
    fprintf(stderr,"\nreportFix_MixingSettings modelindex: %d  count: %d\n",modelindex,(int)[[MixingArray objectAtIndex:modelindex] count]);
-
+   
    NSMutableArray * MixingDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
-    for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
-    {
-       if ([[[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]objectForKey:@"go"]intValue])
-       {
-          [MixingDatenArray addObject:[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]];
-          changecode |= (1<< mixing);
-       }
-    }
+   for (int mixing=0;mixing < [[MixingArray objectAtIndex:modelindex] count];mixing++)
+   {
+      if ([[[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]objectForKey:@"go"]intValue])
+      {
+         [MixingDatenArray addObject:[[MixingArray objectAtIndex:modelindex] objectAtIndex:mixing]];
+         changecode |= (1<< mixing);
+      }
+   }
    bytebuffer[3] = changecode;
    bytebuffer[4] = modelindex; // welches modell
    
@@ -1145,10 +1141,147 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    fprintf(stderr,"\n");
    
    /*
-   mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+    mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+    mixcanals           Offset: 1 // wer mit welchem kanal
+    
+    MIX_OFFSET 0x40
+    
+    NSMutableDictionary* mixingdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+    [NSNumber numberWithInt:settingindex],@"mixnummer",
+    [NSNumber numberWithInt:0],@"mixart",
+    [NSNumber numberWithInt:0xFF],@"canala",
+    [NSNumber numberWithInt:0xFF],@"canalb",
+    [NSString stringWithFormat:@"Mix %d",0],@"mixing",
+    nil]retain];
+    
+    
+    */
+   
+   NSLog(@"reportFix_MixingSettings Data: %@ changecode: %d",MixingDatenArray, changecode);
+   
+   int datastartbyte = 16; // Beginn  der Settings auf dem buffer
+   fprintf(stderr,"MixingSettings:\n");
+   
+   for (int mixing=0;mixing < [MixingDatenArray count];mixing++)
+   {
+      // beteiligte Kanaele
+      uint8_t mixwert =0;
+      NSDictionary* mixDic = [MixingDatenArray objectAtIndex:mixing];
+      int mixa = [[mixDic objectForKey:@"canala"]intValue];
+      int mixb = [[mixDic objectForKey:@"canalb"]intValue];
+      if ((mixa >= 8) || (mixb >= 8))
+      {
+         mixwert = 0x88;
+      }
+      else
+      {
+         mixwert |= mixa & 0x07; // Bit 0-2
+         mixwert |= (mixb & 0x07) << 4; // Bit 4-5
+      }
+      // mixwert = 0x88;
+      fprintf(stderr,"mixa:\t%02X\tmixb:\t%02X\tmixwert:\t%02X *\t %d\n",mixa,mixb,mixwert,mixwert);
+      
+      // Mix-Art: V-Mix, Butterfly usw
+      uint8_t artwert =0;
+      int art = [[mixDic objectForKey:@"mixart"]intValue];
+      artwert |= (art & 0x03); // Bit 0-2
+      
+      bytebuffer[datastartbyte + 2*mixing] = mixwert;
+      bytebuffer[datastartbyte + 2*mixing + 1] = artwert;
+      
+      fprintf(stderr,"mixwert:\t%02X\tartwert:\t%02X *\n",mixwert,artwert);
+      
+   } // for mixing
+   
+   fprintf(stderr,"\nreportFix_MixingSettings bytebuffer ready: \n");
+   for (int pos = 0;pos < EE_PARTBREITE;pos++)
+   {
+      if (pos%8 ==0)
+      {
+         fprintf(stderr,"\t");
+      }
+      if (pos%16 ==0)
+      {
+         fprintf(stderr,"\n");
+      }
+      
+      fprintf(stderr,"\t%02X",bytebuffer[pos]);
+   }
+   fprintf(stderr,"\n");
+   
+   int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   
+   free(bytebuffer);
+   
+   [self reportRead_Settings:NULL];
+}
+
+- (IBAction)reportFix_FunktionSettings:(id)sender // 0xE6
+{
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+   
+   NSLog(@"\nreportFix_FunktionSettings: modelindex: %d Settings: %@",modelindex,[[MixingArray objectAtIndex:modelindex] description]);
+      
+   uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
+   int Funktion_Startadresse = TASK_OFFSET + FUNKTION_OFFSET;
+//   uint8 lo = Funktion_Startadresse & 0x00FF;
+//   uint8 hi = (Funktion_Startadresse & 0xFF00)>>8;
+   bytebuffer[0] = 0xE6;
+   bytebuffer[1] = Funktion_Startadresse & 0x00FF;
+   bytebuffer[2] = (Funktion_Startadresse & 0xFF00)>>8;
+   
+   uint8_t changecode=0; // Bits fuer geaenderte Kanaele
+
+   fprintf(stderr,"\nreportFix_FunktionSettings modelindex: %d  count: %d\n",modelindex,(int)[[MixingArray objectAtIndex:modelindex] count]);
+
+   NSMutableArray * FunktionDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
+    for (int funktionindex=0;funktionindex < [[FunktionArray objectAtIndex:modelindex] count];funktionindex++)
+    {
+       if ([[[[FunktionArray objectAtIndex:modelindex] objectAtIndex:funktionindex]objectForKey:@"go"]intValue]) // Zeile soll revidiert werden
+       {
+          [FunktionDatenArray addObject:[[FunktionArray objectAtIndex:modelindex] objectAtIndex:funktionindex]];
+          
+          changecode |= (1<< funktionindex);
+       }
+    }
+   bytebuffer[3] = changecode;
+   bytebuffer[4] = modelindex; // welches modell
+   
+   fprintf(stderr,"\nreportFix_FunktionSettings modelindex: %d changecode: %d\n",modelindex,changecode);
+   
+   for (uint8_t kanal=0;kanal < 8;kanal++)
+   {
+      if (changecode & (1<<kanal))
+      {
+         // fprintf(stderr,"+%d+\t",changecode & (1<<kanal));
+         fprintf(stderr,"*%d*\t",kanal);
+      }
+   }// for kanal
+   fprintf(stderr,"\n");
+   
+   /*
+    Datenaufbau default_funktionarray in RC_LCD:
+    // index: Kanal
+    // bit 0-2: Funktion Seite, Hoehe ... (Text aus FunktionTable)
+    // @"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux"
+    
+    // bit 4-6: Steuerdevice L_H, L_V .. (Text aus DeviceTable)
+    // @"L_H",@"L_V",@"R_H",@"R_V",@"S_L",@"S_R",@"Sch",@"-"
+    
+    0x00,
+    0x11,
+    0x22,
+    0x33,
+    0x44,
+    0x55,
+    0x66,
+    0x77
+
+   mixart = 0;      Offset: 0  // Art                  FUNKTION_OFFSET
    mixcanals           Offset: 1 // wer mit welchem kanal
    
-    MIX_OFFSET 0x40
+    FUNKTION_OFFSET 0x40
     
     NSMutableDictionary* mixingdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
     [NSNumber numberWithInt:settingindex],@"mixnummer",
@@ -1161,16 +1294,16 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
     
     */
    
-   NSLog(@"reportFix_MixingSettings Data: %@ changecode: %d",MixingDatenArray, changecode);
+   NSLog(@"reportFix_FunktionSettings Data: %@ changecode: %d",FunktionDatenArray, changecode);
 
    int datastartbyte = 16; // Beginn  der Settings auf dem buffer
    fprintf(stderr,"MixingSettings:\n");
    
-   for (int mixing=0;mixing < [MixingDatenArray count];mixing++)
+   for (int mixing=0;mixing < [FunktionDatenArray count];mixing++)
    {
       // beteiligte Kanaele
       uint8_t mixwert =0;
-      NSDictionary* mixDic = [MixingDatenArray objectAtIndex:mixing];
+      NSDictionary* mixDic = [FunktionDatenArray objectAtIndex:mixing];
       int mixa = [[mixDic objectForKey:@"canala"]intValue];
       int mixb = [[mixDic objectForKey:@"canalb"]intValue];
       if ((mixa >= 8) || (mixb >= 8))
@@ -1197,7 +1330,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
    } // for mixing
    
-   fprintf(stderr,"\nreportFix_MixingSettings bytebuffer ready: \n");
+   fprintf(stderr,"\nreportFix_FunktionSettings bytebuffer ready: \n");
    for (int pos = 0;pos < EE_PARTBREITE;pos++)
    {
       if (pos%8 ==0)
@@ -2116,12 +2249,262 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                   }break;
                      
-                     
                   case 0xD5: // // MARK: D5 read Settings
                   {
                      int readadresse = (uint8_t)buffer[1] | ((uint8_t)buffer[2] <<8);
                      
                      fprintf(stderr,"echo D5 aus bytelesen read Settings Byte adresse hex:\t %02X\t  dec:\t %d\t",readadresse,readadresse);
+                     
+                     fprintf(stderr,"Byte data hex:\t %02X\t  dec:\t %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
+                     
+                     // buffer1 ist data
+                     
+                     /*
+                      for (int i=0;i<8;i++)
+                      {
+                      fprintf(stderr,"%X\t",(buffer[i]& 0xFF));
+                      //fprintf(stderr," | ");
+                      }
+                      fprintf(stderr,"\n");
+                      */
+                     
+                     [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
+                     [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
+                     
+                     [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
+                     /*
+                      NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
+                      //NSLog(@"binstring: %@",binstring );
+                      binstring = [[EE_databin stringValue]stringByAppendingFormat:@"%@\r",binstring];
+                      
+                      [EE_databin setStringValue:binstring];
+                      */
+                     NSString* adressestring =[NSString stringWithFormat:@"%02X",readadresse];
+                     NSString* hexstring =[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0xFF];
+                     NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
+                     NSString* kanalstring = [NSString string];
+                     NSString* datastring = [NSString string];
+                     int kanal =readadresse & 0x000F;
+                     int databytecode = readadresse & 0xFFF0;
+                     int data =(UInt8)buffer[3]&0x00FF;
+                     //NSLog(@"kanal: %d databytecode: %02X",databytecode,kanal);
+                     /*
+                      Aufbau:
+                      art = 0;      Offset: 2   EXPO_OFFSET
+                      expoa = 0;    Offset: 0
+                      expob = 2;    Offset: 4
+                      go = 1;
+                      kanal = 0;
+                      levela = 1;   Offset: 0   LEVEL_OFFSET
+                      levelb = 1;   Offset: 4
+                      
+                      nummer = 0;
+                      richtung = 0; Offset: 7
+                      state = 1;
+                      
+                      (
+                      mixart = 0;      Offset: 0  // Art                  MIX_OFFSET
+                      mixcanals        Offset: 1 // wer mit welchem kanal
+                      
+                      )
+                      */
+                     
+                     switch (databytecode)
+                     {
+                        case 0x2020: //level
+                        {
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Lev\tkan\t%d",kanal];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\tkan\t%d",kanal];
+                              
+                           }
+                           
+                           int levela = data&0x0F;
+                           int levelb = (data&0xF0)>>4;
+                           
+                           datastring = [NSString stringWithFormat:@"\tla: %d\tlb: %d",levela,levelb];
+                           
+                        }break;
+                        case 0x2030: //expo
+                        {
+                           /*
+                            expoa:     Bit 0,1
+                            art:       Bit 2,3
+                            expob:     Bit 4,5
+                            Richtung:  Bit 7
+                            
+                            */
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Exp\tkanal\t%d",kanal];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\tkanal\t%d",kanal];
+                           }
+                           int dir=0;
+                           if (data & 0x80)
+                           {
+                              dir = 1;
+                           }
+                           
+                           int expoa= data&0x03;
+                           int expob= (data&0x30)>>4;
+                           
+                           int art= (data&0x0C)>>2;
+                           
+                           //NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
+                           datastring = [NSString stringWithFormat:@"\tea: %d\teb: %d\tart: %d\tdir: %d",expoa,expob,art,dir];
+                           
+                        }break;
+                           
+                        case 0x2040: //mix
+                        {
+                           //mixwert |= mixa & 0x07; // Bit 0-2
+                           //mixwert |= (mixb & 0x07) << 4; // Bit 4-5
+                           
+                           if (kanal==0)
+                           {
+                              kanalstring = [NSString stringWithFormat:@"Mix\t"];
+                           }
+                           else
+                           {
+                              kanalstring = [NSString stringWithFormat:@"\t"];
+                           }
+                           
+                           
+                           
+                           if (kanal % 2) // ungerade, typ
+                           {
+                              kanalstring = [NSString stringWithFormat:@"%@\t",kanalstring];
+                              int mixtyp = (data & 0x03);
+                              datastring = [NSString stringWithFormat:@"\ttyp\t%d",mixtyp];
+                              NSLog(@"kanal ungerade: %d data: %02X mixtyp: %02X datastring: %@",kanal,data,mixtyp,datastring);
+                              
+                           }
+                           else // gerade, kanalnummern
+                           {
+                              kanalstring = [NSString stringWithFormat:@"%@Mix\t%d",kanalstring,kanal/2];
+                              
+                              int mixa = data & 0x0F;
+                              int mixb = (data & 0xF0)>>4;
+                              //int mixa = data & 0x07;
+                              //int mixb = (data & 0x70)>>4;
+                              
+                              datastring = [NSString stringWithFormat:@"\tkan\tka: %d\tkb: %d", mixa, mixb];
+                              NSLog(@"kanal gerade: %d data: %02X mixa: %02X mixb: %02X datastring: %@",kanal,data,mixa,mixb,datastring);
+                              
+                           }
+                           
+                           
+                           
+                        }break;
+                           
+                        case 0x50: // funktion
+                        {
+                           
+                        }break;
+                           
+                     } // switch databytecode
+                     
+                     
+                     // eventuell: http://www.mactech.com/articles/mactech/Vol.19/19.08/NSParagraphStyle/index.html
+                     float firstColumnInch = 1.75,
+                     otherColumnInch = 0.5, pntPerInch = 72.0;
+                     NSMutableArray * TabArray = [NSMutableArray arrayWithCapacity:0];
+                     NSTextTab *aTab;
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:30]; // kanal
+                     [TabArray addObject:aTab];
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:70]; // kan nr
+                     [TabArray addObject:aTab];
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:90];//adresse
+                     [TabArray addObject:aTab];
+                     
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:120];//data
+                     [TabArray addObject:aTab];
+                     aTab = [[NSTextTab alloc]
+                             initWithType:NSLeftTabStopType
+                             location:160];// bin
+                     [TabArray addObject:aTab];
+                     
+                     
+                     for(int i=1;i<8;i++)
+                     {
+                        aTab = [[NSTextTab alloc]
+                                initWithType:NSRightTabStopType
+                                location:180
+                                + ((float)i * 40)];
+                        [TabArray addObject:aTab];
+                        [aTab release]; // aTab was alloc'd and the array owns it now so release it
+                     }
+                     // NSLog(@"TabArray: %@",TabArray);
+                     // http://stackoverflow.com/questions/5005228/how-to-have-unlimited-tab-stops-in-a-",TabArray);-with-disabled-text-wrap
+                     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle defaultParagraphStyle] mutableCopy];
+                     
+                     [style setTabStops:TabArray];
+                     
+                     //[EE_dataview setDefaultParagraphStyle:style];
+                     //[EE_dataview setTypingAttributes:[NSDictionary dictionaryWithObject:style forKey:NSParagraphStyleAttributeName]];
+                     //[style release];
+                     
+                     //binstring =[NSString stringWithFormat:@"%@ \t%@ \t%@\t%@\t%@\n",kanalstring,adressestring,hexstring,binstring,datastring];
+                     
+                     // http://stackoverflow.com/questions/15172971/append-to-nstextview-and-scroll
+                     // https://discussions.apple.com/thread/915981
+                     
+                     NSMutableAttributedString * tab =[[NSMutableAttributedString alloc] initWithString: @"\t"];
+                     NSMutableAttributedString * CR =[[NSMutableAttributedString alloc] initWithString: @"\r"];
+                     
+                     NSMutableAttributedString* attrstring = [[NSMutableAttributedString alloc] initWithString:kanalstring];
+                     
+                     [attrstring addAttribute:NSParagraphStyleAttributeName value:style range:NSMakeRange(0, [attrstring length])];
+                     
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringa =[[NSAttributedString alloc] initWithString: adressestring];
+                     [attrstring appendAttributedString: stringa];
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringb =[[NSAttributedString alloc] initWithString: hexstring];
+                     [attrstring appendAttributedString: stringb];
+                     
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringd =[[NSAttributedString alloc] initWithString: binstring];
+                     [attrstring appendAttributedString: stringd];
+                     [attrstring appendAttributedString: tab];
+                     NSAttributedString * stringe =[[NSAttributedString alloc] initWithString: datastring];
+                     [attrstring appendAttributedString: stringe];
+                     
+                     [attrstring appendAttributedString: CR];
+                     
+                     [[EE_dataview textStorage]appendAttributedString:attrstring];
+                     
+                     [EE_dataview scrollRangeToVisible:NSMakeRange([[EE_dataview string] length],0)];
+                     
+                     usbtask = 0;
+                  }break;
+                     
+                     
+
+                     
+                  case 0xD7: // // MARK: D5 read Settings
+                  {
+                     int readadresse = (uint8_t)buffer[1] | ((uint8_t)buffer[2] <<8);
+                     
+                     fprintf(stderr,"echo Dz aus bytelesen2 read Settings Byte adresse hex:\t %02X\t  dec:\t %d\t",readadresse,readadresse);
                      
                      fprintf(stderr,"Byte data hex:\t %02X\t  dec:\t %d\n",buffer[3]& 0xFF,buffer[3]& 0xFF);
 
@@ -2136,18 +2519,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      fprintf(stderr,"\n");
                      */
                      
-                     [EE_DataFeld setStringValue:[NSString stringWithFormat:@"%d",(UInt8)buffer[3]& 0xFF]];
-                     [EE_datalo setIntValue:(UInt8)buffer[3]& 0x00FF];
-                     
-                     [EE_datalohex setStringValue:[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0x00FF]];
-                     /*
-                     NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
-                     //NSLog(@"binstring: %@",binstring );
-                     binstring = [[EE_databin stringValue]stringByAppendingFormat:@"%@\r",binstring];
-                     
-                    [EE_databin setStringValue:binstring];
-                     */
-                     NSString* adressestring =[NSString stringWithFormat:@"%02X",readadresse];
+                      NSString* adressestring =[NSString stringWithFormat:@"%02X",readadresse];
                      NSString* hexstring =[NSString stringWithFormat:@"%02X",(UInt8)buffer[3]& 0xFF];
                      NSString* binstring = [Math BinStringFromInt:((UInt8)buffer[3]& 0x00FF) ];
                      NSString* kanalstring = [NSString string];
@@ -2225,7 +2597,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                            
                            int art= (data&0x0C)>>2;
                            
-                           //NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
+                           NSLog(@"kanal: %d data: %02X expoa: %02X expob: %02X",kanal,data,expoa,expob);
                            datastring = [NSString stringWithFormat:@"\tea: %d\teb: %d\tart: %d\tdir: %d",expoa,expob,art,dir];
                         
                         }break;
@@ -2280,90 +2652,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      } // switch databytecode
                      
                      
-                     // eventuell: http://www.mactech.com/articles/mactech/Vol.19/19.08/NSParagraphStyle/index.html
-                     float firstColumnInch = 1.75,
-                     otherColumnInch = 0.5, pntPerInch = 72.0;
-                      NSMutableArray * TabArray = [NSMutableArray arrayWithCapacity:0];
-                     NSTextTab *aTab;
-                     
-                     aTab = [[NSTextTab alloc]
-                             initWithType:NSLeftTabStopType
-                             location:30]; // kanal
-                     [TabArray addObject:aTab];
-                     
-                     aTab = [[NSTextTab alloc]
-                             initWithType:NSLeftTabStopType
-                             location:70]; // kan nr
-                     [TabArray addObject:aTab];
-                     
-                     aTab = [[NSTextTab alloc]
-                             initWithType:NSLeftTabStopType
-                             location:90];//adresse
-                     [TabArray addObject:aTab];
-
-                     aTab = [[NSTextTab alloc]
-                             initWithType:NSLeftTabStopType
-                             location:120];//data
-                     [TabArray addObject:aTab];
-                     aTab = [[NSTextTab alloc]
-                             initWithType:NSLeftTabStopType
-                             location:160];// bin
-                     [TabArray addObject:aTab];
-                     
-                     
-                     for(int i=1;i<8;i++)
-                     {
-                        aTab = [[NSTextTab alloc]
-                                initWithType:NSRightTabStopType
-                                location:180
-                                + ((float)i * 40)];
-                        [TabArray addObject:aTab];
-                        [aTab release]; // aTab was alloc'd and the array owns it now so release it
-                     }
-                    // NSLog(@"TabArray: %@",TabArray);
-                     // http://stackoverflow.com/questions/5005228/how-to-have-unlimited-tab-stops-in-a-",TabArray);-with-disabled-text-wrap
-                     NSMutableParagraphStyle *style = [[NSMutableParagraphStyle defaultParagraphStyle] mutableCopy];
-                     
-                     [style setTabStops:TabArray];
-  
-                     //[EE_dataview setDefaultParagraphStyle:style];
-                     //[EE_dataview setTypingAttributes:[NSDictionary dictionaryWithObject:style forKey:NSParagraphStyleAttributeName]];
-                     //[style release];
-                     
-                     //binstring =[NSString stringWithFormat:@"%@ \t%@ \t%@\t%@\t%@\n",kanalstring,adressestring,hexstring,binstring,datastring];
-                     
-                     // http://stackoverflow.com/questions/15172971/append-to-nstextview-and-scroll
-                     // https://discussions.apple.com/thread/915981
-                     
-                     NSMutableAttributedString * tab =[[NSMutableAttributedString alloc] initWithString: @"\t"];
-                     NSMutableAttributedString * CR =[[NSMutableAttributedString alloc] initWithString: @"\r"];
-
-                     NSMutableAttributedString* attrstring = [[NSMutableAttributedString alloc] initWithString:kanalstring];
-                     
-                     [attrstring addAttribute:NSParagraphStyleAttributeName value:style range:NSMakeRange(0, [attrstring length])];
-                     
-                     [attrstring appendAttributedString: tab];
-                     NSAttributedString * stringa =[[NSAttributedString alloc] initWithString: adressestring];
-                     [attrstring appendAttributedString: stringa];
-                     [attrstring appendAttributedString: tab];
-                     NSAttributedString * stringb =[[NSAttributedString alloc] initWithString: hexstring];
-                     [attrstring appendAttributedString: stringb];
-
-                     [attrstring appendAttributedString: tab];
-                     NSAttributedString * stringd =[[NSAttributedString alloc] initWithString: binstring];
-                     [attrstring appendAttributedString: stringd];
-                     [attrstring appendAttributedString: tab];
-                     NSAttributedString * stringe =[[NSAttributedString alloc] initWithString: datastring];
-                     [attrstring appendAttributedString: stringe];
-                     
-                     [attrstring appendAttributedString: CR];
-                     
-                     [[EE_dataview textStorage]appendAttributedString:attrstring];
-                     
-                     [EE_dataview scrollRangeToVisible:NSMakeRange([[EE_dataview string] length],0)];
                      
                      usbtask = 0;
                   }break;
+                     
+                     
  
                   case 0xDB: // read EEPROM Part
                   {
@@ -2701,8 +2994,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   case 0xF5: // echo Read Settings
                   {
                      /*
-                       */
-                     
+                      */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
                      fprintf(stderr,"\n*** echo F5 Setting lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,buffer[3]);
                      
@@ -2727,7 +3019,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      
                      //fprintf(stderr,"byte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
-                    // fprintf(stderr,"\n");
+                     // fprintf(stderr,"\n");
                      
                      NSMutableArray* memSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      int modelindex = buffer[3];
@@ -2767,11 +3059,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //[memSettingArray release];
                      [KanalTable reloadData];
                      
-                      //140105 Auskommentiert, verursachte Crash beim FixSettings. Warum hier aufgerufen???
+                     //140105 Auskommentiert, verursachte Crash beim FixSettings. Warum hier aufgerufen???
                      int readposition =0; // position im Buffer
                      
                      NSLog(@"read_USB MixingArray vor: %@",[MixingArray objectAtIndex:0]);
-
+                     
                      NSMutableArray* memMixingArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
                      for (int k=0;k<4;k++)
                      {
@@ -2797,8 +3089,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         int artbyte = buffer[0x30 + readposition];
                         int mixart = (artbyte & 0x07);
                         [mixDic setObject:[NSNumber numberWithInt:mixart] forKey:@"mixart"];
-                       fprintf(stderr,"mixDic k: %d readposition: %d artbyte: %02X mixart: %d \n",k,readposition,artbyte,mixart);
-
+                        fprintf(stderr,"mixDic k: %d readposition: %d artbyte: %02X mixart: %d \n",k,readposition,artbyte,mixart);
+                        
                         //NSLog(@"k: %d canalbyte: %02X",k,canalbyte);
                         //if (artbyte) // Einstellungen fuer Mixing vorhanden
                         {
@@ -2815,7 +3107,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      NSLog(@"MixingArray nach: %@",[MixingArray objectAtIndex:0]);
                      //[memMixingArray release];
                      [MixingTable reloadData];
-                    
+                     
                      
                      // Ausgabe
                      fprintf(stderr,"\n");
@@ -2839,7 +3131,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      {
                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
                      }
-                    fprintf(stderr,"\n");
+                     fprintf(stderr,"\n");
                      
                      fprintf(stderr,"\nF5 Ausgabe von 32 an");
                      for (int k=32;k<USB_DATENBREITE;k++)
@@ -2852,7 +3144,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         {
                            fprintf(stderr,"\n");
                         }
-
+                        
                         else if (k && k%(EE_PARTBREITE/4)==0)
                         {
                            fprintf(stderr,"\t");
@@ -2866,7 +3158,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      // Master refresh
                      [readsetting_mark setBackgroundColor:[NSColor greenColor]];
                      [self reportRefresh_Master:NULL];
-
+                     
                   }break;
                   
                   case 0xF6: // echo Fix Mixing Byteschreiben
@@ -3330,7 +3622,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    for (int model=0;model<3;model++)
    {
-       SettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+      SettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
       for (int kanal=0;kanal<8;kanal++)
       {
          NSMutableDictionary* kanaldic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
@@ -3377,45 +3669,47 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [MixingArray addObject:MixingSettingArray];
       [MixingSettingArray release];
       [MixingTable reloadData];
-/*
-      // Dispatch
-      DispatchArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
-      [DispatchTable setDelegate:self];
-      [DispatchTable setDataSource:self];
-      
-      NSMutableArray* DispatchSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
-      for (int dispatchindex=0;dispatchindex<8;dispatchindex++)
-      {
-         int canal = dispatchindex;
-         int device = dispatchindex;
-         NSMutableDictionary* dispatchdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                              [NSNumber numberWithInt:canal],@"canal",
-                                              [NSNumber numberWithInt:device],@"device",
-                                              [NSNumber numberWithInt:(canal | (device<<4))],@"dispatchcanal",
-                                              [NSString stringWithFormat:@"Dispatch %d",0],@"dispatch",
-                                              nil]retain];
-         [DispatchSettingArray addObject:dispatchdic];
-         [dispatchdic release];
-      }
-      NSLog(@"DispatchSettingArray : %@",[DispatchSettingArray  description]);
-      [DispatchArray addObject:DispatchSettingArray];
-      [DispatchSettingArray release];
-      [DispatchTable reloadData];
-      // end Dispatch
-*/
+      /*
+       // Dispatch
+       DispatchArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+       [DispatchTable setDelegate:self];
+       [DispatchTable setDataSource:self];
+       
+       NSMutableArray* DispatchSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+       for (int dispatchindex=0;dispatchindex<8;dispatchindex++)
+       {
+       int canal = dispatchindex;
+       int device = dispatchindex;
+       NSMutableDictionary* dispatchdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+       [NSNumber numberWithInt:canal],@"canal",
+       [NSNumber numberWithInt:device],@"device",
+       [NSNumber numberWithInt:(canal | (device<<4))],@"dispatchcanal",
+       [NSString stringWithFormat:@"Dispatch %d",0],@"dispatch",
+       nil]retain];
+       [DispatchSettingArray addObject:dispatchdic];
+       [dispatchdic release];
+       }
+       NSLog(@"DispatchSettingArray : %@",[DispatchSettingArray  description]);
+       [DispatchArray addObject:DispatchSettingArray];
+       [DispatchSettingArray release];
+       [DispatchTable reloadData];
+       // end Dispatch
+       */
       // Funktion tag 700
       /*
-      const char funktion0[] PROGMEM = "Seite \0";
-      const char funktion1[] PROGMEM = "Hoehe \0";
-      const char funktion2[] PROGMEM = "Quer   \0";
-      const char funktion3[] PROGMEM = "Motor \0";
-      const char funktion4[] PROGMEM = "Quer L\0";
-      const char funktion5[] PROGMEM = "Quer R\0";
-      const char funktion6[] PROGMEM = "Lande \0";
-      const char funktion7[] PROGMEM = "Aux    \0";
+       const char funktion0[] PROGMEM = "Seite \0";
+       const char funktion1[] PROGMEM = "Hoehe \0";
+       const char funktion2[] PROGMEM = "Quer   \0";
+       const char funktion3[] PROGMEM = "Motor \0";
+       const char funktion4[] PROGMEM = "Quer L\0";
+       const char funktion5[] PROGMEM = "Quer R\0";
+       const char funktion6[] PROGMEM = "Lande \0";
+       const char funktion7[] PROGMEM = "Aux    \0";
        */
-/*
+      
       default_DeviceArray = [NSArray arrayWithObjects:@"L_H",@"L_V",@"R_H",@"R_V",@"S_L",@"S_R",@"Sch",@"-", nil];
+      
+      // Funktion
       default_FunktionArray = [NSArray arrayWithObjects:@"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux", nil];
       FunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
       [FunktionTable setDelegate:self];
@@ -3429,12 +3723,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          int funktion = funktionindex;
          
          NSMutableDictionary* funktiondic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                              [NSNumber numberWithInt:canal],@"canalnummer",
+                                              //[NSNumber numberWithInt:canal],@"canalnummer",
                                               [NSNumber numberWithInt:device],@"devicenummer",
                                               [default_DeviceArray objectAtIndex:funktionindex],@"device",
                                               [NSNumber numberWithInt:funktion],@"funktionnummer",
-
-                                             [default_FunktionArray objectAtIndex:funktionindex],@"funktion",
+                                              
+                                              [default_FunktionArray objectAtIndex:funktionindex],@"funktion",
                                               
                                               [NSNumber numberWithInt:(canal | (device<<4))],@"funktioncanal",
                                               
@@ -3442,13 +3736,13 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          [FunktionSettingArray addObject:funktiondic];
          [funktiondic release];
       }
-      NSLog(@"DispatchSettingArray : %@",[FunktionSettingArray  description]);
+      NSLog(@"FunktionSettingArray : %@",[FunktionSettingArray  description]);
       [FunktionArray addObject:FunktionSettingArray];
       [FunktionSettingArray release];
       [FunktionTable reloadData];
-      // end Dispatch
-*/
-   
+      // end Funktion
+      
+      
    }
   // NSLog(@"ModelArray 0 count: %d data: %@ ",(int)[[ModelArray objectAtIndex:0] count],[ModelArray objectAtIndex:0]);
    
@@ -3547,14 +3841,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    }
    
    DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
-
    {
      
       int wert=0;
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
       //for (int pos=0;pos<100-1;pos++)
       {
-         
          if (pos%2 == 0)
          {
   //          if ((pos%16==0) || (pos == 2*VEKTORSIZE-2))

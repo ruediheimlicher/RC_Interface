@@ -261,6 +261,8 @@
    IBOutlet id      ExpoTabel;
    IBOutlet id      FixSettingTaste;
    IBOutlet id      FixMixingTaste;
+   IBOutlet id      FixFunktionTaste;
+
    IBOutlet id      ReadSettingTaste;
    IBOutlet id      ReadSenderTaste;
    IBOutlet id      ModelFeld;
