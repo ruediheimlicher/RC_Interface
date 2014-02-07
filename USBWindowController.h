@@ -220,6 +220,7 @@
    
    IBOutlet id      readsetting_mark;
    IBOutlet id      readsender_mark;
+   IBOutlet id      readfunktion_mark;
    IBOutlet id      refreshmaster_mark;
 
    
