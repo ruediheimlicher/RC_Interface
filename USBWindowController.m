@@ -798,6 +798,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)setHalt:(int)status
 {
+   
    if (status && (![readTimer isValid]))
    {
       NSAlert *Warnung = [[[NSAlert alloc] init] autorelease];
@@ -871,6 +872,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    [FixMixingTaste setEnabled:status];
    [ReadSettingTaste setEnabled:status];
    [ReadSenderTaste setEnabled:status];
+   [ReadFunktionTaste setEnabled:status];
+
    [MasterRefreshTaste setEnabled:status];
    
    
@@ -1077,7 +1080,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 }
 
-- (IBAction)reportRead_SenderSettings:(id)sender // 0xF5
+- (IBAction)reportRead_SenderSettings:(id)sender // 0xFD
 {
    [readsender_mark setBackgroundColor:[NSColor redColor]];
    int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
@@ -1110,7 +1113,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
    
-   NSLog(@"reportRead_FunktionSettings erfolg: %d",senderfolg);
+   NSLog(@"reportRead_FunktionSettings modelindex: %d erfolg: %d",modelindex, senderfolg);
    free(bytebuffer);
    
 }
@@ -1245,6 +1248,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    free(bytebuffer);
    
   // [self reportRead_Settings:NULL];
+
 }
 
 
@@ -2470,10 +2474,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                               kanalstring = [NSString stringWithFormat:@"\t"];
                            }
                            
-                           kanalstring = [NSString stringWithFormat:@"%@\t",kanalstring];
+                           kanalstring = [NSString stringWithFormat:@"%@\t%d",kanalstring,kanal];
                            int funktion = (data & 0x07);
-                           datastring = [NSString stringWithFormat:@"\tfkt\t%d",funktion];
-                           NSLog(@"D5 kanal : %d data: %02X funktion: %02X datastring:%@",kanal,data,funktion,datastring);
+                           int device = (data & 0x70)>>4;
+                           datastring = [NSString stringWithFormat:@"\tfkt\t%d\tdev\t%d",funktion,device];
+                           //NSLog(@"D5 funktion kanal : %d data: %02X funktion: %02X datastring:%@",kanal,data,funktion,datastring);
                            
                         }break;
                            
@@ -2637,6 +2642,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         datastring = [NSString stringWithFormat:@"\tla: %d\tlb: %d",levela,levelb];
                         
                         }break;
+                           
                         case 0x2030: //expo
                         {
                            /*
@@ -2712,7 +2718,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                            
                         }break;
                            
-                        case 0x50: // funktion
+                        case 0x60: // funktion
                         {
                            
                         }break;
@@ -2904,7 +2910,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      /*
                       */
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
-                     fprintf(stderr,"\n*** echo E7 Funktionen lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,buffer[3]);
+                     fprintf(stderr,"\n*** echo E7 Funktionen lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,(uint8)buffer[5]);
                      
                      for (int k=0;k<USB_DATENBREITE;k++)
                      {
@@ -2934,43 +2940,67 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      // Funktion
                      /*
                       NSMutableDictionary* funktiondic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                      [NSNumber numberWithInt:device],@"devicenummer",
+                      [NSNumber numberWithInt:devicenummer],@"devicenummer",
                       [default_DeviceArray objectAtIndex:funktionindex],@"device",
-                      [NSNumber numberWithInt:funktion],@"funktionnummer",
+                      [NSNumber numberWithInt:funktionnummer],@"funktionnummer",
                       
                       [default_FunktionArray objectAtIndex:funktionindex],@"funktion",
                       
-                      [NSNumber numberWithInt:(canal | (device<<4))],@"funktioncanal",
-                      
+                      [NSNumber numberWithInt:((funktionnummer & 0xFF) | ((devicenummer & 0xFF)<<4))],@"device_funktion",
+
                       */
-                     int modelindex = buffer[3];
+                     int modelindex = buffer[5];
 
                       int readposition =0; // position im Buffer
                       
                       //NSLog(@"read_USB E7 FunktionArray[0] vor: %@",[FunktionArray objectAtIndex:0]);
                       
-                      NSMutableArray* memFunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]autorelease];
+                      NSMutableArray* memFunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
                       
                       for (int k=0;k<8;k++)
                       {
-                      NSMutableDictionary* funktionDic = [[NSMutableDictionary alloc]initWithCapacity:0];
-                      [funktionDic setObject:[NSNumber numberWithInt:modelindex]
-                      forKey:@"modelnummer"];
-                      [funktionDic setObject:[NSString stringWithFormat:@"M %d",modelindex] forKey:@"model"];
-                      [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"go"];
-                      [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"state"];
-                      [funktionDic setObject:[NSNumber numberWithInt:k] forKey:@"nummer"];
-                      
-                      int funktionbyte = buffer[0x20 + k]&0xFF; // ab 56
-                      
-                      // index ist Kanal
-                      // !! Funktion ist bit 0-2 , Steuerdevice ist bit 4-6!!
-                      
-                      [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x07)] forKey:@"funktion"]; // bit 0-2
-                      [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x70)>>4] forKey:@"device"]; // bit 4-6
-                      NSLog(@"read_USB E7 k: %d funktionbyte: %02X funktionDic: %@",k,funktionbyte, funktionDic);
+                         NSMutableDictionary* funktionDic = [[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
+                         [funktionDic setObject:[NSNumber numberWithInt:modelindex]
+                                         forKey:@"modelnummer"];
+                         [funktionDic setObject:[NSString stringWithFormat:@"M %d",modelindex] forKey:@"model"];
+                         [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"go"];
+                         [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"state"];
+                         [funktionDic setObject:[NSNumber numberWithInt:k] forKey:@"nummer"];
+                         
+                         int funktionbyte = buffer[0x20 + k]&0xFF; // ab 32
+                         
+                         // index ist Kanal
+                         // !! Funktion ist bit 0-2 , Steuerdevice ist bit 4-6!!
+                         int funktionindex = funktionbyte & 0x07;
+                         
+                         [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x07)] forKey:@"funktionnummer"]; // bit 0-2
+                         // NSLog(@"count: %d*",[default_FunktionArray count]);
+                         NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
+                         
+                         [funktionDic setObject:[default_FunktionArray objectAtIndex:funktionindex] forKey:@"funktion"];
+                         
+                         int deviceindex = (funktionbyte & 0x70)>>4;
+                         
+                         [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x70)>>4] forKey:@"devicenummer"]; // bit 4-6
+                         [funktionDic setObject:[default_DeviceArray objectAtIndex:deviceindex] forKey:@"device"];
+                         
+                         //NSLog(@"read_USB E7 k: %d funktionbyte: %02X funktionDic: %@",k,funktionbyte, funktionDic);
+                         
+                         [memFunktionArray addObject:funktionDic];
+                         
                       } // for k
-                      
+                     
+                     NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
+                     
+                     [FunktionArray replaceObjectAtIndex:modelindex withObject:memFunktionArray];
+                                          [memFunktionArray release];
+                     NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
+
+                     [FunktionTable reloadData];
+                     
+                     
+                     
+                     
                      
                      
                      // Ausgabe
@@ -2978,9 +3008,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
                        fprintf(stderr,"E7 Funktion:\n");
                       int offset = 0x20;
-                      for (int k=offset;k<(offset+8);k++)
+                     //for (int k=offset;k<(offset+8);k++)
+                      for (int k=0;k<8;k++)
                       {
-                      fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
                       }
                       fprintf(stderr,"\n");
                      
@@ -3012,6 +3043,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      // Master refresh
                      [readfunktion_mark setBackgroundColor:[NSColor greenColor]];
+                     
                    //  [self reportRefresh_Master:NULL];
                      
                   }break;
@@ -3237,6 +3269,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                   {
                      /*
                       */
+                     
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
                      fprintf(stderr,"\n*** echo F5 Setting lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,buffer[3]);
                      
@@ -3257,7 +3290,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                         fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
                      }
-                     fprintf(stderr,"***\n");
+                     fprintf(stderr,"\n***\n");
                      
                      
                      //fprintf(stderr,"byte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
@@ -3353,6 +3386,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //NSLog(@"MixingArray nach: %@",[MixingArray objectAtIndex:0]);
                      //[memMixingArray release];
                      [MixingTable reloadData];
+                     
+                     
+                     
                      
                      
                      
@@ -3548,14 +3584,91 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      /*
                       */
                      [readsender_mark setBackgroundColor:[NSColor greenColor]];
-
+                     int modelindex = buffer[3];
                      int startadresse = (uint8)buffer[1] | ((uint8)buffer[2]<<8);
                      fprintf(stderr,"\n*** echo FD SenderSetting lesen readadresse hex: %02X\t dez: %d\tmodelindex: %d\n ",startadresse,startadresse,buffer[3]);
+                     
+                     int kanal =startadresse & 0x000F;
+                     int databytecode = startadresse & 0xFFF0;
+                     int data =(UInt8)buffer[3]&0x00FF;
+                     NSLog(@"kanal: %d databytecode: %02X",databytecode,kanal);
+
+                     
+                     
+                     for (int k=0;k<USB_DATENBREITE;k++)
+                     {
+                        if (k==EE_PARTBREITE)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/2)==0)
+                        {
+                           fprintf(stderr,"\n");
+                        }
+                        else if (k && k%(EE_PARTBREITE/4)==0)
+                        {
+                           fprintf(stderr,"\t");
+                        }
+                        
+                        fprintf(stderr,"%02X\t",(buffer[k]& 0xFF));
+                     }
+                     fprintf(stderr,"***\n");
+                     
+                     //NSLog(@"read_USB E7 FunktionArray[0] vor: %@",[FunktionArray objectAtIndex:0]);
+                     
+                     NSMutableArray* memFunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+                     
+                     for (int k=0;k<8;k++)
+                     {
+                        NSMutableDictionary* funktionDic = [[[NSMutableDictionary alloc]initWithCapacity:0]autorelease];
+                        [funktionDic setObject:[NSNumber numberWithInt:modelindex]
+                                        forKey:@"modelnummer"];
+                        [funktionDic setObject:[NSString stringWithFormat:@"M %d",modelindex] forKey:@"model"];
+                        [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"go"];
+                        [funktionDic setObject:[NSNumber numberWithInt:0] forKey:@"state"];
+                        [funktionDic setObject:[NSNumber numberWithInt:k] forKey:@"nummer"];
+                        
+                        int funktionbyte = buffer[0x20 + k]&0xFF; // ab 32
+                        
+                        // index ist Kanal
+                        // !! Funktion ist bit 0-2 , Steuerdevice ist bit 4-6!!
+                        int funktionindex = funktionbyte & 0x07;
+                        
+                        [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x07)] forKey:@"funktionnummer"]; // bit 0-2
+                        // NSLog(@"count: %d*",[default_FunktionArray count]);
+                        NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
+                        
+                        [funktionDic setObject:[default_FunktionArray objectAtIndex:funktionindex] forKey:@"funktion"];
+                        
+                        int deviceindex = (funktionbyte & 0x70)>>4;
+                        
+                        [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x70)>>4] forKey:@"devicenummer"]; // bit 4-6
+                        [funktionDic setObject:[default_DeviceArray objectAtIndex:deviceindex] forKey:@"device"];
+                        
+                        //NSLog(@"read_USB E7 k: %d funktionbyte: %02X funktionDic: %@",k,funktionbyte, funktionDic);
+                        
+                        [memFunktionArray addObject:funktionDic];
+                        
+                     } // for k
+                     
+                     NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
+                     
+                     [FunktionArray replaceObjectAtIndex:modelindex withObject:memFunktionArray];
+                     [memFunktionArray release];
+                     
+                     NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
+                     
+                     [FunktionTable reloadData];
+                     
+                     
+                     
+                     
+                     
                      
                      
                      // Ausgabe
                      fprintf(stderr,"\n");
-                     fprintf(stderr,"Funktion:\n");
+                     fprintf(stderr,"FD Funktion:\n");
                      int offset = 0x20;
                      for (int k=offset;k<(offset+8);k++)
                      {
@@ -3598,7 +3711,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //fprintf(stderr," | ");
                      }
                      fprintf(stderr,"\n");
+                     
+                     
 
+                     [FunktionTable reloadData];
                   }break;
 
                }// switch code
@@ -3967,36 +4083,42 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
        const char funktion7[] PROGMEM = "Aux    \0";
        */
       
+      //Device
       default_DeviceArray = [NSArray arrayWithObjects:@"L_H",@"L_V",@"R_H",@"R_V",@"S_L",@"S_R",@"Sch",@"-", nil];
-      
+      [default_DeviceArray retain];
       // Funktion
       default_FunktionArray = [NSArray arrayWithObjects:@"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux", nil];
+      [default_FunktionArray retain];
+      NSLog(@"awake default_FunktionArray: %@",default_FunktionArray);
+      
+      
       FunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
       [FunktionTable setDelegate:self];
       [FunktionTable setDataSource:self];
       
+      // Settings pro model
       NSMutableArray* FunktionSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
       for (int funktionindex=0;funktionindex<8;funktionindex++)
       {
          int canal = funktionindex;
-         int device = funktionindex;
-         int funktion = funktionindex;
+         int devicenummer = funktionindex;
+         int funktionnummer = 7-funktionindex;
          
          NSMutableDictionary* funktiondic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                              //[NSNumber numberWithInt:canal],@"canalnummer",
-                                              [NSNumber numberWithInt:device],@"devicenummer",
+                                              [NSNumber numberWithInt:funktionindex],@"nummer",
+                                              [NSNumber numberWithInt:devicenummer],@"devicenummer",
                                               [default_DeviceArray objectAtIndex:funktionindex],@"device",
-                                              [NSNumber numberWithInt:funktion],@"funktionnummer",
+                                              [NSNumber numberWithInt:funktionnummer],@"funktionnummer",
                                               
                                               [default_FunktionArray objectAtIndex:funktionindex],@"funktion",
                                               
-                                              [NSNumber numberWithInt:(canal | (device<<4))],@"funktioncanal",
+                                              [NSNumber numberWithInt:((funktionnummer & 0xFF) | ((devicenummer & 0xFF)<<4))],@"device_funktion",
                                               
                                               nil]retain];
          [FunktionSettingArray addObject:funktiondic];
          [funktiondic release];
       }
-      //NSLog(@"FunktionSettingArray : %@",[FunktionSettingArray  description]);
+      NSLog(@"FunktionSettingArray : %@",[FunktionSettingArray  description]);
       [FunktionArray addObject:FunktionSettingArray];
       [FunktionSettingArray release];
       [FunktionTable reloadData];
@@ -4066,6 +4188,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
 //      fprintf(stderr,"\n\n");
       [EEDatenArray addObject:neuerDatenArray];
+      NSLog(@"awake end default_FunktionArray: %@",default_FunktionArray);
    }
    
    
@@ -4441,14 +4564,50 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    NSLog(@"Read_SettingsAktion");
    [self reportRead_Settings:NULL];
    
-   // refresh in F5 veranlasst
+   
+   NSTimer* startTimer = [[NSTimer scheduledTimerWithTimeInterval:5.0
+                                                          target:self
+                                                        selector:@selector(Read_Sender_Aktion:)
+                                                        userInfo:NULL repeats:NO]retain];
+
+   
+   // refresh in F5 veranlasst EVENTUELL IN READ_SENDER_AKTION aktivieren !!
    /*
    NSTimer* haltTimer = [[NSTimer scheduledTimerWithTimeInterval:5.0
                                                           target:self
                                                         selector:@selector(Refresh_MasterAktion:)
                                                         userInfo:NULL repeats:NO]retain];
 */
+   
+   
 }
+
+
+- (void)Read_Sender_Aktion:(NSTimer*)timer
+{
+   [timer invalidate];
+   [timer release];
+   NSLog(@"startSendersettingReadAktion");
+   //[self reportRead_FunktionSettings:NULL];
+   
+   [self reportRead_SenderSettings:NULL];
+   
+   
+   // refresh in F5 veranlasst
+   /*
+    NSTimer* haltTimer = [[NSTimer scheduledTimerWithTimeInterval:5.0
+    target:self
+    selector:@selector(Refresh_MasterAktion:)
+    userInfo:NULL repeats:NO]retain];
+    */
+   
+   
+}
+
+
+
+
+
 
 - (void)Refresh_MasterAktion:(NSTimer*)timer
 {
@@ -4733,16 +4892,19 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView
 {
    
-   int tabindex = [aTableView tag]%100;
-   
+   //int tabindex = [aTableView tag]%100;
+   int tabindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+
    switch([aTableView tag]/100 )
    {
       case 4:
       {
+         NSLog(@"ModelArray count: %d",[ModelArray count]);
          return [[ModelArray objectAtIndex:tabindex] count];
       }break;
       case 5:
       {
+         NSLog(@"MixingArray count: %d",[MixingArray count]);
          return [[MixingArray objectAtIndex:tabindex] count];
       }break;
       case 6:
@@ -4752,6 +4914,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
       case 7:
       {
+         NSLog(@"FunktionArray count: %d",[FunktionArray count]);
          return [[FunktionArray objectAtIndex:tabindex] count];
       }break;
 
@@ -4766,21 +4929,23 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
-   int tabindex = [aTableView tag]%100;
+   //int tabindex = [aTableView tag]%100;
+   
+   int tabindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
    //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
    switch((int)[aTableView tag]/100 )
    {
       case 4:
       {
-         if (tabindex < [ModelArray count])
+        // if (tabindex < [ModelArray count])
          {
             return [[[ModelArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
          }
       }break;
       case 5:
       {
-         //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
-         if (tabindex < [MixingArray count])
+        // NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
+         //if (tabindex < [MixingArray count])
          {
             
             return [[[MixingArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
@@ -4790,7 +4955,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       case 6:
       {
          //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
-         if (tabindex < [DispatchArray count])
+         //if (tabindex < [DispatchArray count])
          {
             
             return [[[DispatchArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
@@ -4800,7 +4965,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       case 7:
       {
          //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
-         if (tabindex < [FunktionArray count])
+         //if (tabindex < [FunktionArray count])
          {
             
             return [[[FunktionArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
@@ -4818,6 +4983,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }break;
          
    }
+   
    return NULL;
 }
 
@@ -4826,7 +4992,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    forTableColumn:(NSTableColumn *)aTableColumn
               row:(NSInteger)rowIndex
 {
-   int tabindex = [aTableView tag]%100;
+   //int tabindex = [aTableView tag]%100;
+   int tabindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
    NSString* ident = [aTableColumn identifier];
   // if (tabindex < [ModelArray count])
 	{
@@ -4928,6 +5095,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                }
             }
             
+            /*
              if ([ident isEqualToString:@"device"])
             {
               // NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[[FunktionArray objectAtIndex:tabindex] objectAtIndex:rowIndex]description]);
@@ -4937,7 +5105,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             
             
             }
-            else
+             */
+            
             {
                [[[FunktionArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
             }
@@ -4947,6 +5116,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             // NSArray* keyArray = [einDic allKeys];
             
             //[einDic setObject:anObject forKey:[aTableColumn identifier]];
+         
+         
          }break;
             
          case 8: // Ausgang

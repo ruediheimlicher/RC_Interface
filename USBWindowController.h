@@ -266,6 +266,8 @@
 
    IBOutlet id      ReadSettingTaste;
    IBOutlet id      ReadSenderTaste;
+   IBOutlet id      ReadFunktionTaste;
+   
    IBOutlet id      ModelFeld;
    IBOutlet id      SetFeld;
    
