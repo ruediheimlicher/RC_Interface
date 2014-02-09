@@ -939,7 +939,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    bytebuffer[3] = changecode; // welcher kanal zu aendern
    bytebuffer[4] = modelindex; // welches modell
    
-   fprintf(stderr,"\nreportFix_KanalSettingsKanal\n fixstartadresse: %d hex: %02X\tmodelindex: %d changecode: %d\n",Fix_Startadresse,Fix_Startadresse,modelindex,changecode);
+   fprintf(stderr,"\nreportFix_KanalSettings\n fixstartadresse: %d hex: %02X\tmodelindex: %d changecode: %d\n",Fix_Startadresse,Fix_Startadresse,modelindex,changecode);
 /*
    for (uint8_t kanal=0;kanal < 8;kanal++)
    {
@@ -985,24 +985,24 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       fprintf(stderr,"\nkanal: %d expoa: %02X expob: %02X\n",kanal,expoa,expob);
       
-      expowert |= expoa & 0x03; // Bit 0,1
-      fprintf(stderr,"expowert 1: %02X\n",expowert);
+      expowert |= expoa & 0x03; // expoa Bit 0,1
+      fprintf(stderr,"expowert a: %02X\n",expowert);
 
-      expowert |= ((expob & 0x03) << 4); // Bit 0,1
-      fprintf(stderr,"expowert 2: %02X\n",expowert);
+      expowert |= ((expob & 0x03) << 4); // expob Bit 0,1
+      fprintf(stderr,"expowert a|b: %02X\n",expowert);
       
       int art = [[kanalDic objectForKey:@"art"]intValue];
       fprintf(stderr,"art: %02X\n",art);
       
       expowert |= ((art & 0x03) << 2); // Bit 2,3
-      fprintf(stderr,"expowert 3: %02X\n",expowert);
+      fprintf(stderr,"expowert def: %02X\n",expowert);
      
       int richtung = [[kanalDic objectForKey:@"richtung"]intValue];
       fprintf(stderr,"richtung: %02X\n",richtung);
 
       
       expowert |= (richtung & 0x01) << 7; // Bit 7
-      fprintf(stderr,"\nreportFix_KanalSettings kanal: %d expowert: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
+      fprintf(stderr,"\nreportFix_KanalSettings kanal: %d expowert mit Ri: %02X\n",[[kanalDic objectForKey:@"nummer"]intValue],expowert);
       
       uint8_t levelwert =0;
       int levela = [[kanalDic objectForKey:@"levela"]intValue];
@@ -2975,7 +2975,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                          
                          [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x07)] forKey:@"funktionnummer"]; // bit 0-2
                          // NSLog(@"count: %d*",[default_FunktionArray count]);
-                         NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
+                         //NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
                          
                          [funktionDic setObject:[default_FunktionArray objectAtIndex:funktionindex] forKey:@"funktion"];
                          
@@ -2990,11 +2990,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                          
                       } // for k
                      
-                     NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
+                     //NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
                      
                      [FunktionArray replaceObjectAtIndex:modelindex withObject:memFunktionArray];
                                           [memFunktionArray release];
-                     NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
+                     //NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
 
                      [FunktionTable reloadData];
                      
@@ -3093,8 +3093,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         [ADC_DataFeld setIntValue:adc0];
                         [ADC_Level setIntValue:adc0];
                      }
-                     
-                     
+                     if (buffer[0x3B])
+                     {
+                        NSLog(@"task_out: %d ",(UInt8)buffer[0x3B]);
+                     }
                      
                      int pot0L = (UInt8)buffer[1];
                      int pot0H = (UInt8)buffer[2];
@@ -3636,7 +3638,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                         [funktionDic setObject:[NSNumber numberWithInt:(funktionbyte & 0x07)] forKey:@"funktionnummer"]; // bit 0-2
                         // NSLog(@"count: %d*",[default_FunktionArray count]);
-                        NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
+                        //NSLog(@"read_USB E7 default_FunktionArray: %@",[default_FunktionArray description]);
                         
                         [funktionDic setObject:[default_FunktionArray objectAtIndex:funktionindex] forKey:@"funktion"];
                         
@@ -3651,12 +3653,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         
                      } // for k
                      
-                     NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
+                     //NSLog(@"read_USB E7 FunktionArray vor: %@",[FunktionArray objectAtIndex:0]);
                      
                      [FunktionArray replaceObjectAtIndex:modelindex withObject:memFunktionArray];
                      [memFunktionArray release];
                      
-                     NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
+                     //NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
                      
                      [FunktionTable reloadData];
                      
@@ -4089,7 +4091,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       // Funktion
       default_FunktionArray = [NSArray arrayWithObjects:@"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux", nil];
       [default_FunktionArray retain];
-      NSLog(@"awake default_FunktionArray: %@",default_FunktionArray);
+      //NSLog(@"awake default_FunktionArray: %@",default_FunktionArray);
       
       
       FunktionArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
@@ -4118,7 +4120,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
          [FunktionSettingArray addObject:funktiondic];
          [funktiondic release];
       }
-      NSLog(@"FunktionSettingArray : %@",[FunktionSettingArray  description]);
+      //NSLog(@"FunktionSettingArray : %@",[FunktionSettingArray  description]);
       [FunktionArray addObject:FunktionSettingArray];
       [FunktionSettingArray release];
       [FunktionTable reloadData];
@@ -4126,6 +4128,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       
    }
+   
   // NSLog(@"ModelArray 0 count: %d data: %@ ",(int)[[ModelArray objectAtIndex:0] count],[ModelArray objectAtIndex:0]);
    
    [SettingTab selectTabViewItemAtIndex:0];
@@ -4188,7 +4191,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }
 //      fprintf(stderr,"\n\n");
       [EEDatenArray addObject:neuerDatenArray];
-      NSLog(@"awake end default_FunktionArray: %@",default_FunktionArray);
+      //NSLog(@"awake end default_FunktionArray: %@",default_FunktionArray);
    }
    
    
@@ -4899,12 +4902,12 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    {
       case 4:
       {
-         NSLog(@"ModelArray count: %d",[ModelArray count]);
+         //NSLog(@"ModelArray count: %d",[ModelArray count]);
          return [[ModelArray objectAtIndex:tabindex] count];
       }break;
       case 5:
       {
-         NSLog(@"MixingArray count: %d",[MixingArray count]);
+         //NSLog(@"MixingArray count: %d",[MixingArray count]);
          return [[MixingArray objectAtIndex:tabindex] count];
       }break;
       case 6:
