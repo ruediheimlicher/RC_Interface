@@ -263,6 +263,8 @@
    IBOutlet id      FixSettingTaste;
    IBOutlet id      FixMixingTaste;
    IBOutlet id      FixFunktionTaste;
+   IBOutlet id      FixDeviceTaste;
+   IBOutlet id      FixAusagangTaste;
 
    IBOutlet id      ReadSettingTaste;
    IBOutlet id      ReadSenderTaste;
@@ -275,20 +277,20 @@
 
    
    NSMutableArray*   MixingArray;//
-   IBOutlet id      MixingTab;
-   IBOutlet id      MixingTable;
+   IBOutlet id       MixingTab;
+   IBOutlet id       MixingTable;
 
-   NSMutableArray*   DispatchArray;//
-   IBOutlet id      DispatchTab;
-   IBOutlet id      DispatchTable;
+   NSMutableArray*   DeviceArray;//
+   IBOutlet id       DeviceTab;
+   IBOutlet id       DeviceTable;
 
    NSMutableArray*   FunktionArray;//
-   IBOutlet id      FunktionTab;
-   IBOutlet id      FunktionTable;
+   IBOutlet id       FunktionTab;
+   IBOutlet id       FunktionTable;
    
    NSMutableArray*   AusgangArray;//
-   IBOutlet id      AusgangTab;
-   IBOutlet id      AusgangTable;
+   IBOutlet id       AusgangTab;
+   IBOutlet id       AusgangTable;
    
    
    rDefinitionen* Definitionen;

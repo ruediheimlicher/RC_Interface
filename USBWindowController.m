@@ -1123,7 +1123,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
    int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
    
- //  NSLog(@"\nreportFix_FunktionSettings: modelindex: %d Settings: %@",modelindex,[[FunktionArray objectAtIndex:modelindex] description]);
+   //  NSLog(@"\nreportFix_FunktionSettings: modelindex: %d Settings: %@",modelindex,[[FunktionArray objectAtIndex:modelindex] description]);
    
    uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
    int Funktion_Startadresse = TASK_OFFSET + FUNKTION_OFFSET;
@@ -1137,7 +1137,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    uint8_t changecode=0; // Bits fuer geaenderte Kanaele
    
-//   fprintf(stderr,"\nreportFix_FunktionSettings modelindex: %d  count: %d\n",modelindex,(int)[[FunktionArray objectAtIndex:modelindex] count]);
+   //   fprintf(stderr,"\nreportFix_FunktionSettings modelindex: %d  count: %d\n",modelindex,(int)[[FunktionArray objectAtIndex:modelindex] count]);
    
    NSMutableArray * FunktionDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    
@@ -1211,6 +1211,138 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       NSDictionary* funktionDic = [FunktionDatenArray objectAtIndex:fkt];
       int funktionnummer = [[funktionDic objectForKey:@"funktionnummer"]intValue];
       int devicenummer = [[funktionDic objectForKey:@"devicenummer"]intValue];
+      {
+         funktionwert |= funktionnummer & 0x07; // Bit 0-2
+         funktionwert |= (devicenummer & 0x07) << 4; // Bit 4-5
+      }
+      
+      fprintf(stderr,"funktionnummer:\t%02X\t devicenummer:\t%02X\t funktionwert:\t%02X  \t %d\n",funktionnummer,devicenummer,funktionwert,funktionwert);
+      
+      
+      bytebuffer[datastartbyte + fkt] = funktionwert;
+      
+      fprintf(stderr,"funktionwert:\t%02X\n",funktionwert);
+      
+   } // for fkt
+   
+   fprintf(stderr,"\nreportFix_FunktionSettings bytebuffer ready: \n");
+   for (int pos = 0;pos < EE_PARTBREITE;pos++)
+   {
+      if (pos%8 ==0)
+      {
+         fprintf(stderr,"\t");
+      }
+      if (pos%16 ==0)
+      {
+         fprintf(stderr,"\n");
+      }
+      
+      fprintf(stderr,"\t%02X",bytebuffer[pos]);
+   }
+   fprintf(stderr,"\n");
+   fprintf(stderr,"\n");
+   if (usbstatus)
+   {
+      int senderfolg= rawhid_send(0, bytebuffer, 64, 50);
+   }
+   free(bytebuffer);
+   
+   // [self reportRead_Settings:NULL];
+   
+}
+
+- (IBAction)reportFix_DeviceSettings:(id)sender // 0xE6
+{
+   //DeviceArray:  bit 0-2: Steuerfunktion bit 4-6: Kanal von Steuerfunktion
+
+   int modelindex = [SettingTab indexOfTabViewItem:[SettingTab selectedTabViewItem]];
+   
+ //  NSLog(@"\reportFix_DeviceSettings: modelindex: %d Settings: %@",modelindex,[[DiviceArray objectAtIndex:modelindex] description]);
+   
+   uint8_t*      bytebuffer = malloc(USB_DATENBREITE);
+   int Device_Startadresse = TASK_OFFSET + DEVICE_OFFSET;
+   
+   NSLog(@"\reportFix_DeviceSettings Device_Startadresse: %02X",Device_Startadresse);
+   bytebuffer[0] = 0xE8;
+   bytebuffer[1] = Device_Startadresse & 0x00FF;
+   bytebuffer[2] = (Device_Startadresse & 0xFF00)>>8;
+   
+   uint8_t changecode=0; // Bits fuer geaenderte Kanaele
+   
+//  fprintf(stderr,"\reportFix_DeviceSettings modelindex: %d  count: %d\n",modelindex,(int)[[DeviceArray objectAtIndex:modelindex] count]);
+   
+   NSMutableArray * DeviceDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
+   
+   for (int funktionindex=0;funktionindex < [[DeviceArray objectAtIndex:modelindex] count];funktionindex++)
+   {
+      if ([[[[DeviceArray objectAtIndex:modelindex] objectAtIndex:funktionindex]objectForKey:@"go"]intValue]) // Zeile soll revidiert werden
+      {
+         [DeviceDatenArray addObject:[[DeviceArray objectAtIndex:modelindex] objectAtIndex:funktionindex]];
+         
+         changecode |= (1<< funktionindex);
+      }
+   }
+   bytebuffer[3] = changecode;
+   bytebuffer[4] = modelindex; // welches modell
+   
+   fprintf(stderr,"\nreportFix_DeviceSettings modelindex: %d changecode: %d\n",modelindex,changecode);
+   
+   for (uint8_t kanal=0;kanal < 8;kanal++)
+   {
+      if (changecode & (1<<kanal))
+      {
+         // fprintf(stderr,"+%d+\t",changecode & (1<<kanal));
+         fprintf(stderr,"*%d*\t",kanal);
+      }
+   }// for kanal
+   
+   fprintf(stderr,"\n");
+   
+   /*
+    Datenaufbau default_devicearray in RC_LCD:
+    // index: Kanal
+    // bit 0-2: Funktion Seite, Hoehe ... (Text aus FunktionTable)
+    // @"Seite",@"Hoehe",@"Quer",@"Motor",@"Quer L",@"Quer R",@"Lande",@"Aux"
+    
+    // bit 4-6: zugeordneter Kanal
+    
+    0x00,
+    0x11,
+    0x22,
+    0x33,
+    0x44,
+    0x55,
+    0x66,
+    0x77
+    
+    mixart = 0;      Offset: 0  // Art                  FUNKTION_OFFSET
+    mixcanals           Offset: 1 // wer mit welchem kanal
+    
+    FUNKTION_OFFSET 0x60
+    
+    NSMutableDictionary* mixingdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+    [NSNumber numberWithInt:settingindex],@"mixnummer",
+    [NSNumber numberWithInt:0],@"mixart",
+    [NSNumber numberWithInt:0xFF],@"canala",
+    [NSNumber numberWithInt:0xFF],@"canalb",
+    [NSString stringWithFormat:@"Mix %d",0],@"mixing",
+    nil]retain];
+    
+    
+    */
+   
+   NSLog(@"reportFix_DevicenSettings Data: %@ changecode: %d",DeviceDatenArray, changecode);
+   
+   int datastartbyte = 16; // Beginn  der Settings auf dem buffer
+   fprintf(stderr,"FunktionSettings:\n");
+   
+   for (int fkt=0;fkt < [DeviceDatenArray count];fkt++)
+   {
+      // beteiligte Kanaele
+      uint8_t funktionwert =0;
+      NSDictionary* deviceDic = [DeviceDatenArray objectAtIndex:fkt];
+      int funktionnummer = [[deviceDic objectForKey:@"funktionnummer"]intValue];
+      int devicenummer = [[deviceDic objectForKey:@"devicenummer"]intValue];
       {
          funktionwert |= funktionnummer & 0x07; // Bit 0-2
          funktionwert |= (devicenummer & 0x07) << 4; // Bit 4-5
@@ -2847,8 +2979,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                       */
                      for (int k=0;k<USB_DATENBREITE;k++) // 32 16Bit-Werte
                      {
-                        
-                        
                         if (k==EE_PARTBREITE)
                         {
                            fprintf(stderr,"\n");
@@ -2857,7 +2987,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         {
                            fprintf(stderr,"\t");
                         }
-                        
                         
                         fprintf(stderr,"%02X\t",(uint8)buffer[k]);
                         
@@ -2903,7 +3032,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
                   }
                      
-                     
                      // MARK: E7 Read Funktionen
                   case 0xE7: // echo Read Funktionen
                   {
@@ -2931,11 +3059,8 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      }
                      fprintf(stderr,"***\n");
                      
-                     
                      //fprintf(stderr,"byte: %02X\t checkbyte: %02X\t",(uint8)buffer[4],(uint8)buffer[5]);
                      // fprintf(stderr,"\n");
-                     
-                     
                      
                      // Funktion
                      /*
@@ -2998,12 +3123,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
                      [FunktionTable reloadData];
                      
-                     
-                     
-                     
-                     
-                     
-                     // Ausgabe
+                      // Ausgabe
                      fprintf(stderr,"\n");
 
                        fprintf(stderr,"E7 Funktion:\n");
@@ -3047,9 +3167,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                    //  [self reportRefresh_Master:NULL];
                      
                   }break;
-   
-                     
-                     
                      
                   case 0xEC:
                   {
@@ -3131,7 +3248,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      }
                      if (pot0L && pot1L)
                      {
-                        //fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
+                       // fprintf(stderr,"\t%d\t%d\n",pot0,pot1);
                      }
                      
                      //for (int k=0;k<5;k++)
@@ -3152,11 +3269,14 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //NSLog(@"testdata");
                      
                      // Daten ausgeben
-                     //for (int k=0;k<8;k++)
+                     for (int k=0;k<4;k++)
                      {
-                       // fprintf(stderr,"%02X\t",(UInt8)buffer[EE_PARTBREITE+k]);
+                        
+                        //fprintf(stderr,"%02X\t",(UInt8)buffer[EE_PARTBREITE+k]);
+                        //int tempwert =(UInt8)buffer[EE_PARTBREITE+(k/2)] | ((UInt8)buffer[EE_PARTBREITE+k/2+1])<<8;
+                        //fprintf(stderr,"%d\t",tempwert);
                      }
-                     //fprintf(stderr,"\n");
+                    // fprintf(stderr,"*\n");
                      //NSLog(@"testdata data0: %02X data1: %02X data2: %02X data3: %02X",(UInt8)buffer[EE_PARTBREITE],(UInt8)buffer[EE_PARTBREITE+1],(UInt8)buffer[EE_PARTBREITE+2],(UInt8)buffer[EE_PARTBREITE+3]);
                      /*
                      
@@ -3182,9 +3302,22 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      
                      //fprintf(stderr,"canalwerta:\t%d\tcanalwertb:\t%d\n",canalwerta,canalwertb);
                      */
+                     
+              //       fprintf(stderr,"Eingang von LCD\n");
                      /*
-                     fprintf(stderr,"Eingang von LCD\n");
-                     for (int k=0;k<USB_DATENBREITE/2;k++)
+                     for (int k=0;k<8;k++)
+                        
+                     {
+                        
+                        
+                        
+                        fprintf(stderr,"%02X\t",(buffer[USB_DATENBREITE+k]& 0xFF));
+                        //fprintf(stderr," | ");
+                     }
+                     fprintf(stderr,"\n");
+                      */
+                    
+                     for (int k=USB_DATENBREITE/2;k<USB_DATENBREITE/2+8;k++)
                         
                      {
                         
@@ -3206,7 +3339,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                         //fprintf(stderr," | ");
                      }
                      fprintf(stderr,"\n");
-*/
+                    // fprintf(stderr,"\n");
+
+                     
                   }break;
                      
                   // MARK: Fix Sendersettings
@@ -4048,30 +4183,30 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       [MixingSettingArray release];
       [MixingTable reloadData];
       /*
-       // Dispatch
-       DispatchArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
-       [DispatchTable setDelegate:self];
-       [DispatchTable setDataSource:self];
+       // Device
+       DeviceArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+       [DeviceTable setDelegate:self];
+       [DeviceTable setDataSource:self];
        
-       NSMutableArray* DispatchSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
-       for (int dispatchindex=0;dispatchindex<8;dispatchindex++)
+       NSMutableArray* DeviceSettingArray = [[[NSMutableArray alloc]initWithCapacity:0]retain];
+       for (int Deviceindex=0;Deviceindex<8;Deviceindex++)
        {
-       int canal = dispatchindex;
-       int device = dispatchindex;
-       NSMutableDictionary* dispatchdic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
+       int canal = Deviceindex;
+       int device = Deviceindex;
+       NSMutableDictionary* Devicedic = [[NSMutableDictionary dictionaryWithObjectsAndKeys:
        [NSNumber numberWithInt:canal],@"canal",
        [NSNumber numberWithInt:device],@"device",
-       [NSNumber numberWithInt:(canal | (device<<4))],@"dispatchcanal",
-       [NSString stringWithFormat:@"Dispatch %d",0],@"dispatch",
+       [NSNumber numberWithInt:(canal | (device<<4))],@"Devicecanal",
+       [NSString stringWithFormat:@"Device %d",0],@"Device",
        nil]retain];
-       [DispatchSettingArray addObject:dispatchdic];
-       [dispatchdic release];
+       [DeviceSettingArray addObject:Devicedic];
+       [Devicedic release];
        }
-       NSLog(@"DispatchSettingArray : %@",[DispatchSettingArray  description]);
-       [DispatchArray addObject:DispatchSettingArray];
-       [DispatchSettingArray release];
-       [DispatchTable reloadData];
-       // end Dispatch
+       NSLog(@"DeviceSettingArray : %@",[DeviceSettingArray  description]);
+       [DeviceArray addObject:DeviceSettingArray];
+       [DeviceSettingArray release];
+       [DeviceTable reloadData];
+       // end Device
        */
       // Funktion tag 700
       /*
@@ -4912,7 +5047,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       }break;
       case 6:
       {
-         return [[DispatchArray objectAtIndex:tabindex] count];
+         return [[DeviceArray objectAtIndex:tabindex] count];
       }break;
 
       case 7:
@@ -4958,10 +5093,10 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       case 6:
       {
          //NSLog(@"objectValueForTableColumn rowIndex: %d tabindex: %d",rowIndex, tabindex);
-         //if (tabindex < [DispatchArray count])
+         //if (tabindex < [DeviceArray count])
          {
             
-            return [[[DispatchArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
+            return [[[DeviceArray objectAtIndex:tabindex] objectAtIndex:rowIndex]objectForKey:[aTableColumn identifier]];
          }
       }break;
 
@@ -5055,7 +5190,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             //[einDic setObject:anObject forKey:[aTableColumn identifier]];
          }break;
 
-         case 6: // Dispatch
+         case 6: // Device
          {
             //NSLog(@"ident: %@ ",ident);
             
@@ -5064,21 +5199,21 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                //if ([aTableView selectedRow] == rowIndex)
                {
                   //NSLog(@"go: rowIndex: %lu data: %d",(long)rowIndex,[[SettingArray objectAtIndex:rowIndex]intValue]);
-                  [[[DispatchArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:@"state"];
+                  [[[DeviceArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:@"state"];
                   
                }
             }
             
             {
-               [[[DispatchArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
+               [[[DeviceArray objectAtIndex:tabindex] objectAtIndex:rowIndex] setObject:anObject forKey:ident];
             }
             if ([ident isEqualToString:@"mixart"])
             {
-               NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[[DispatchArray objectAtIndex:tabindex] objectAtIndex:rowIndex]description]);
+               NSLog(@"go: rowIndex: %lu data: %@",(long)rowIndex,[[[DeviceArray objectAtIndex:tabindex] objectAtIndex:rowIndex]description]);
             }
             
             //
-            //NSLog(@"DispatchArray: %@",[DispatchArray description]);
+            //NSLog(@"DeviceArray: %@",[DeviceArray description]);
             // NSArray* keyArray = [einDic allKeys];
             
             //[einDic setObject:anObject forKey:[aTableColumn identifier]];
@@ -5115,7 +5250,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
             }
 
             //
-            //NSLog(@"DispatchArray: %@",[DispatchArray description]);
+            //NSLog(@"DeviceArray: %@",[DeviceArray description]);
             // NSArray* keyArray = [einDic allKeys];
             
             //[einDic setObject:anObject forKey:[aTableColumn identifier]];
