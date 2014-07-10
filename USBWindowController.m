@@ -3729,8 +3729,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      int databytecode = startadresse & 0xFFF0;
                      int data =(UInt8)buffer[3]&0x00FF;
                      NSLog(@"kanal: %d databytecode: %02X",databytecode,kanal);
-
-                     
                      
                      for (int k=0;k<USB_DATENBREITE;k++)
                      {
@@ -3796,11 +3794,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //NSLog(@"read_USB E7 FunktionArray nach: %@",[FunktionArray objectAtIndex:0]);
                      
                      [FunktionTable reloadData];
-                     
-                     
-                     
-                     
-                     
                      
                      
                      // Ausgabe
@@ -4363,7 +4356,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    DiagrammExpoDatenArray = [[NSMutableArray alloc]initWithCapacity:0];
    {
-     
       int wert=0;
       for (int pos=0;pos<2*VEKTORSIZE-1;pos++)
       //for (int pos=0;pos<100-1;pos++)
@@ -4554,55 +4546,55 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    if (usbstatus)
    {
-   const char* manu = get_manu();
-   //fprintf(stderr,"manu: %s\n",manu);
-   NSString* Manu = [NSString stringWithUTF8String:manu];
-   
-   const char* prod = get_prod();
-   //fprintf(stderr,"prod: %s\n",prod);
-   NSString* Prod = [NSString stringWithUTF8String:prod];
-   NSLog(@"Manu: %@ Prod: %@",Manu, Prod);
-   
-   NSDictionary* USBDatenDic = [NSDictionary dictionaryWithObjectsAndKeys:Prod,@"prod",Manu,@"manu", nil];
-   //[AVR setUSBDaten:USBDatenDic];
-
-   
-   //
-   // von http://stackoverflow.com/questions/9918429/how-to-know-when-a-hid-usb-bluetooth-device-is-connected-in-cocoa
-   
-   IONotificationPortRef notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
-   CFRunLoopAddSource(CFRunLoopGetCurrent(), 
-                      IONotificationPortGetRunLoopSource(notificationPort), 
-                      kCFRunLoopDefaultMode);
-   
-   CFMutableDictionaryRef matchingDict2 = IOServiceMatching(kIOUSBDeviceClassName);
-   CFRetain(matchingDict2); // Need to use it twice and IOServiceAddMatchingNotification() consumes a reference
-   
-   
-   io_iterator_t portIterator = 0;
-   // Register for notifications when a serial port is added to the system
-   kern_return_t result = IOServiceAddMatchingNotification(notificationPort,
-                                                           kIOPublishNotification,
-                                                           matchingDict2,
-                                                           DeviceAdded,
-                                                           self,           
-                                                           &portIterator);
-   while (IOIteratorNext(portIterator)) {}; // Run out the iterator or notifications won't start (you can also use it to iterate the available devices).
-   
-   // Also register for removal notifications
-   IONotificationPortRef terminationNotificationPort = IONotificationPortCreate(kIOMasterPortDefault);
-   CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                      IONotificationPortGetRunLoopSource(terminationNotificationPort),
-                      kCFRunLoopDefaultMode);
-   result = IOServiceAddMatchingNotification(terminationNotificationPort,
-                                             kIOTerminatedNotification,
-                                             matchingDict2,
-                                             DeviceRemoved,
-                                             self,         // refCon/contextInfo
-                                             &portIterator);
-   
-   while (IOIteratorNext(portIterator)) {}; // Run out the iterator or notifications won't start (you can also use it to iterate the available devices).
-   
+      const char* manu = get_manu();
+      //fprintf(stderr,"manu: %s\n",manu);
+      NSString* Manu = [NSString stringWithUTF8String:manu];
+      
+      const char* prod = get_prod();
+      //fprintf(stderr,"prod: %s\n",prod);
+      NSString* Prod = [NSString stringWithUTF8String:prod];
+      NSLog(@"Manu: %@ Prod: %@",Manu, Prod);
+      
+      NSDictionary* USBDatenDic = [NSDictionary dictionaryWithObjectsAndKeys:Prod,@"prod",Manu,@"manu", nil];
+      //[AVR setUSBDaten:USBDatenDic];
+      
+      
+      //
+      // von http://stackoverflow.com/questions/9918429/how-to-know-when-a-hid-usb-bluetooth-device-is-connected-in-cocoa
+      
+      IONotificationPortRef notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+      CFRunLoopAddSource(CFRunLoopGetCurrent(),
+                         IONotificationPortGetRunLoopSource(notificationPort),
+                         kCFRunLoopDefaultMode);
+      
+      CFMutableDictionaryRef matchingDict2 = IOServiceMatching(kIOUSBDeviceClassName);
+      CFRetain(matchingDict2); // Need to use it twice and IOServiceAddMatchingNotification() consumes a reference
+      
+      
+      io_iterator_t portIterator = 0;
+      // Register for notifications when a serial port is added to the system
+      kern_return_t result = IOServiceAddMatchingNotification(notificationPort,
+                                                              kIOPublishNotification,
+                                                              matchingDict2,
+                                                              DeviceAdded,
+                                                              self,
+                                                              &portIterator);
+      while (IOIteratorNext(portIterator)) {}; // Run out the iterator or notifications won't start (you can also use it to iterate the available devices).
+      
+      // Also register for removal notifications
+      IONotificationPortRef terminationNotificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+      CFRunLoopAddSource(CFRunLoopGetCurrent(),
+                         IONotificationPortGetRunLoopSource(terminationNotificationPort),
+                         kCFRunLoopDefaultMode);
+      result = IOServiceAddMatchingNotification(terminationNotificationPort,
+                                                kIOTerminatedNotification,
+                                                matchingDict2,
+                                                DeviceRemoved,
+                                                self,         // refCon/contextInfo
+                                                &portIterator);
+      
+      while (IOIteratorNext(portIterator)) {}; // Run out the iterator or notifications won't start (you can also use it to iterate the available devices).
+      
    } //   if usbstatus
    //
    NSRect Balkenrect = [Vertikalbalken frame];
@@ -4633,9 +4625,6 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    
    int maxY = ENDWERT+1000;
    int maxX = 2048+100;
-   
-   
-   
    
    float faktorX = DataFeld.size.width/maxX;
    float faktorY = DataFeld.size.height/maxY;
