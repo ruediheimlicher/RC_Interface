@@ -64,9 +64,11 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
    int  r;
    
    r = rawhid_open(1, 0x16C1, 0x0481, 0xFFAB, 0x0200);
+// Teensy3.2:    r = rawhid_open(1, 0x16C0, 0x0486, 0xFFAB, 0x0200);
+
    if (r <= 0) 
    {
-      //NSLog(@"USBOpen: no rawhid device found");
+      NSLog(@"USBOpen: no rawhid device found");
       //[AVR setUSB_Device_Status:0];
    }
    else
@@ -77,9 +79,9 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       //fprintf(stderr,"manu: %s\n",manu);
       NSString* Manu = [NSString stringWithUTF8String:manu];
       
-      const char* prod = get_prod();
+      const char* prod = ' ';//get_prod();
       //fprintf(stderr,"prod: %s\n",prod);
-      NSString* Prod = [NSString stringWithUTF8String:prod];
+      NSString* Prod = @"h";//[NSString stringWithUTF8String:prod];
       //NSLog(@"Manu: %@ Prod: %@",Manu, Prod);
       NSDictionary* USBDatenDic = [NSDictionary dictionaryWithObjectsAndKeys:Prod,@"prod",Manu,@"manu", nil];
  //     [AVR setUSBDaten:USBDatenDic];
@@ -156,7 +158,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
 
 - (void)startRead
 {
-   //NSLog(@"startRead");
+   NSLog(@"startRead");
    Dataposition = 0;
    // home ist 1 wenn homebutton gedrŸckt ist
    NSMutableDictionary* timerDic =[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:0],@"home", nil];
@@ -3204,7 +3206,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      int adc0H = (UInt8)buffer[0x3F];// HI
                      int adc0 = adc0L | (adc0H<<8);
                      
-                     //NSLog(@"adc0L: %d adc0H: %d adc0: %d",adc0L,adc0H,adc0);
+                     NSLog(@"Batterie adc0L: %d adc0H: %d adc0: %d",adc0L,adc0H,adc0);
                      if (adc0L)
                      {
                         [ADC_DataFeld setIntValue:adc0];
@@ -3303,20 +3305,20 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
                      //fprintf(stderr,"canalwerta:\t%d\tcanalwertb:\t%d\n",canalwerta,canalwertb);
                      */
                      
-              //       fprintf(stderr,"Eingang von LCD\n");
-                     /*
+                     fprintf(stderr,"F0 Eingang von LCD\n");
+                     
+                     int pos0 = buffer[USB_DATENBREITE] << 8 | buffer[USB_DATENBREITE + 1] ;
+                     fprintf(stderr,"F0 pos0: %d\n",pos0);
+                     
                      for (int k=0;k<8;k++)
                         
                      {
-                        
-                        
-                        
                         fprintf(stderr,"%02X\t",(buffer[USB_DATENBREITE+k]& 0xFF));
                         //fprintf(stderr," | ");
                      }
                      fprintf(stderr,"\n");
-                      */
-                    
+                     
+                     
                      for (int k=USB_DATENBREITE/2;k<USB_DATENBREITE/2+8;k++)
                         
                      {
@@ -4552,7 +4554,7 @@ void DeviceRemoved(void *refCon, io_iterator_t iterator)
       
       const char* prod = get_prod();
       //fprintf(stderr,"prod: %s\n",prod);
-      NSString* Prod = [NSString stringWithUTF8String:prod];
+      NSString* Prod = @"h";//[NSString stringWithUTF8String:prod];
       NSLog(@"Manu: %@ Prod: %@",Manu, Prod);
       
       NSDictionary* USBDatenDic = [NSDictionary dictionaryWithObjectsAndKeys:Prod,@"prod",Manu,@"manu", nil];

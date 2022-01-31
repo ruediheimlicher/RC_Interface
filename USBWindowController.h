@@ -127,7 +127,12 @@
    IBOutlet    NSSlider*            Pot0_SliderInt;
    IBOutlet    NSSlider*            Pot1_SliderInt;
 
+   IBOutlet    NSSlider*            Pot2_SliderInt;
+   IBOutlet    NSSlider*            Pot3_SliderInt;
    
+   IBOutlet    NSSlider*            Pot4_SliderInt;
+   IBOutlet    NSSlider*            Pot5_SliderInt;
+
    
     NSData*                         lastValueRead; /*" The last value read"*/
     NSData*                         lastDataRead; /*" The last value read"*/

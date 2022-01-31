@@ -319,9 +319,16 @@ int rawhid_open(int max, int vid, int pid, int usage_page, int usage)
 	//printf("rawhid_open, max=%d\n", max);
    //fflush (stdout); 
 	if (max < 1) return 0;
+   if (hid_manager) 
+   {
+      CFRelease(hid_manager);
+      hid_manager = NULL;
+   }
+
    // Start the HID Manager
    // http://developer.apple.com/technotes/tn2007/tn2187.html
-	if (!hid_manager) {
+	if (!hid_manager) 
+   {
       hid_manager = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
       if (hid_manager == NULL || CFGetTypeID(hid_manager) != IOHIDManagerGetTypeID()) {
          if (hid_manager) CFRelease(hid_manager);
